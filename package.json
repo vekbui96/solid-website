@@ -1,0 +1,18 @@
+{
+  "name": "solid-website",
+  "version": "1.0.0",
+  "description": "solid js website for learning",
+  "main": "index.js",
+  "repository": "https://github.com/vekbui96/solid-website.git",
+  "author": "vekbui96 <tommy.bui1428@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "solid-js": "^1.8.11"
+  },
+  "scripts":{
+    "dev": "vite --host"
+  },
+  "devDependencies":{
+    "vite":"*4.4.9"
+  }
+}
