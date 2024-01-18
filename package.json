@@ -15,7 +15,8 @@
     "vite-plugin-solid": "^2.8.2"
   },
   "scripts": {
-    "dev": "vite --host"
+    "dev": "vite --host",
+    "build" : "vite build"
   },
   "devDependencies": {
     "vite": "*4.4.9"
