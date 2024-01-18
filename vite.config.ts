@@ -4,7 +4,7 @@ import { createHtmlPlugin } from "vite-plugin-html"
 import solid from 'vite-plugin-solid'
 
 export default defineConfig({
-    base: "localhost:5173/",
+    base: "",
     plugins: [solid(),
   
 ],
