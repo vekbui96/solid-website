@@ -7,12 +7,15 @@
   "author": "vekbui96 <tommy.bui1428@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "solid-js": "^1.8.11"
+    "solid-element": "^1.8.0",
+    "solid-js": "^1.8.11",
+    "vite-plugin-html": "^3.2.2",
+    "vite-plugin-solid": "^2.8.2"
   },
-  "scripts":{
+  "scripts": {
     "dev": "vite --host"
   },
-  "devDependencies":{
-    "vite":"*4.4.9"
+  "devDependencies": {
+    "vite": "*4.4.9"
   }
 }
