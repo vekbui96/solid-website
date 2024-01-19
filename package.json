@@ -10,14 +10,15 @@
     "@solidjs/router": "^0.10.9",
     "sass": "^1.70.0",
     "solid-element": "^1.8.0",
+    "solid-fa": "^0.2.0",
     "solid-js": "^1.8.11",
     "vite-plugin-html": "^3.2.2",
     "vite-plugin-solid": "^2.8.2"
   },
   "scripts": {
     "dev": "vite --host",
-    "build" : "vite build",
-    "deploy" : "gh-pages -d dist"
+    "build": "vite build",
+    "deploy": "gh-pages -d dist"
   },
   "devDependencies": {
     "vite": "*4.4.9"

@@ -1,0 +1,31 @@
+{
+    "name": "Lucy Doe",
+    "bio":  "I graduated at the at the University of Texas at Arlington with a bachelors in Computer Science and minor in mathematics. I've been programming for 10 years of programming in languages including Java, HTML, C++, and many more. I have an extensive amount of projects including a robotics path tracking program, sorting algorithms, as well as multiple mobile applications for both android and iOS My first job out of college was as an embedded software engineer at Lockheed Martin. I worked on the F-16 fighter jet as a full stack engineer. The team I was on really focused down on OOP principals. I managed to contribute to the team by restructuring mutliple classes to make it easier to make future modifications, increasing the teams overall efficiency. I took leadership rolls here where I had my own intern that shadowed me and I taught how her how to write scripts, program using C++, and gave college advice to. We had practiced agile principals and I managed to be a scrum master for a couple of months before I left the company. At the end of the first year, I was giving a rating of 'Significantly Achieved' which was nearly imposible at the time as a level 1 engineer. We used plenty of applications such as Jira, Jenkins, Rhapsody, and Demensions. As far as languages I got experice with C++, Java, Python and many more. Currently I am a Software engineer for State Farm. I started reccently and will update when I have enough experiece. On top of my programming skills, I had multiple roles in leadership positions. Spring 2019, Tommy managed to hold a two executive position in his fraternity 'Lambda Phi Epsilon' as the Treasurer as well as the Vice-President Internal. This position required him to manage money for events as well as lead his fraternity internally to academic success. Skills that he learned through this organization includes adobe photoshop, premier, and indesign. With these skills, he is able to make professional tables and booklets similar to professionals.",
+    "thumb": "about-left-thumb.jpg",
+    "socialMedia": [
+      {
+        "id": 1,
+        "media": "facebook",
+        "icon": "FaFacebookF",
+        "link": "https://fb.com/username"
+      },
+      {
+        "id": 2,
+        "media": "twitter",
+        "icon": "FaTwitter",
+        "link": "https://twitter.com/username"
+      },
+      {
+        "id": 3,
+        "media": "linkedin",
+        "icon": "FaLinkedinIn",
+        "link": "https://linkedin.com/in/username"
+      },
+      {
+        "id": 4,
+        "media": "github",
+        "icon": "FaGithub",
+        "link": "https://github.com/username"
+      }
+    ]
+  }
