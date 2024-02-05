@@ -8,6 +8,7 @@
   "license": "MIT",
   "dependencies": {
     "@solidjs/router": "^0.10.9",
+    "gh-pages": "^6.1.1",
     "sass": "^1.70.0",
     "solid-element": "^1.8.0",
     "solid-fa": "^0.2.0",
