@@ -8,10 +8,10 @@ import styles from './index.scss?inline'
 
 const MainPage = () => {
     return (<>
-        <style>{styles}</style>
+        <style>{styles}</style>            
+        <ThreeBackground/>
         <div class="website-container">
             <Header />
-            <ThreeBackground class="ThreeBackground"/>
         </div>
     </>
     )

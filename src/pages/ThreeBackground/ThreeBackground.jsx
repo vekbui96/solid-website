@@ -9,11 +9,11 @@ export default function ThreeBackground(props) {
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement); // You might want to append this to a specific element instead
+        containerRef.appendChild(renderer.domElement); // You might want to append this to a specific element instead
     
         // Add a cube
         const geometry = new THREE.BoxGeometry();
-        const material = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+        const material = new THREE.MeshBasicMaterial({ color: 0xE5E5E5 });
         const cube = new THREE.Mesh(geometry, material);
         scene.add(cube);
     
