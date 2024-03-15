@@ -39,5 +39,5 @@ export default function ThreeBackground() {
         });
   });
 
-  return <div ref={containerRef}></div>;
+  return <div ref={containerRef}/>;
 }

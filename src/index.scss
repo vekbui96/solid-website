@@ -9,23 +9,24 @@
     top: 0;
     left: 0;
     display: flex;
-    flex-direction: column;
-    height: 100vh;
-    width: 100vw;
-}
-
-.canvas {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    top: 0;
-    left: 0;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
 }
 
 canvas {
     position: absolute;
     top: 0;
     left: 0;
-    height: 100vh;
-    width: 100vw;
+    height: 100%;
+    width: 100%;
+}
+
+body{
+    height: 100%;
+    width: 100%;
+}
+
+.display-manager {
+    flex-grow: 1
 }
