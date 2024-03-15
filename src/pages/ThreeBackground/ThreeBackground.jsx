@@ -1,7 +1,7 @@
 import { onCleanup, onMount } from 'solid-js';
 import * as THREE from 'three';
 
-export default function ThreeBackground(props) {
+export default function ThreeBackground() {
   let containerRef;
 
   onMount(() => {

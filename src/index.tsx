@@ -10,6 +10,7 @@ const MainPage = () => {
     return (<>
         <style>{styles}</style>            
         <ThreeBackground/>
+        
         <div class="website-container">
             <Header />
         </div>
