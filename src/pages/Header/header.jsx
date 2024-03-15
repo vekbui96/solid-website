@@ -5,17 +5,16 @@ export const Header = () => {
 
     return (
         <>
-            <header className="header">
-                <div className="container">
-                    <div className="subHeader">
-                        <div className="flex items-center justify-between">
-                            <span className="sm:hidden">
-                            </span>
-                        </div>
-                        <Navbar/>
-                    </div>
-                </div>
-            </header>
+            <div class="header-container">
+                <h1>
+                    Ve Bui
+                </h1>
+                <p>
+                    name
+                </p>
+                <div class="todo-remove-spacing"></div>
+                <Navbar/>
+            </div>
         </>
     );
 };

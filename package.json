@@ -13,6 +13,7 @@
     "solid-element": "^1.8.0",
     "solid-fa": "^0.2.0",
     "solid-js": "^1.8.11",
+    "three": "^0.162.0",
     "vite-plugin-html": "^3.2.2",
     "vite-plugin-solid": "^2.8.2"
   },
