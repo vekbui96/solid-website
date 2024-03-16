@@ -1,7 +1,11 @@
+
 * {
     color: white;
-    font-family: Optimist, 'Helvetica Neue', Arial, Helvetica, sans-serif;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 100;
 }
+
+
 
 .website-container {
     display: flex;
@@ -45,3 +49,9 @@ body{
     width: 100%;
 }
 
+@media screen and (min-width: 600px) {
+    .website-container .content-container {
+        margin: 40px;
+      padding: 40px;
+    }
+  }

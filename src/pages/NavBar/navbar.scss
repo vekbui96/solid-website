@@ -9,3 +9,11 @@ li{
     flex-direction: column;
 }
 
+
+@media screen and (min-width: 600px) {
+    .nav {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+  }

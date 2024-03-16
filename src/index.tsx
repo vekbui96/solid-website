@@ -7,6 +7,12 @@ import ThreeBackground from './pages/ThreeBackground/ThreeBackground.jsx'
 // @ts-ignore
 import styles from './index.scss?inline'
 
+document.addEventListener('touchmove', function (e) {
+    e.preventDefault(); // This is to further ensure scrolling does not occur
+}, { passive: false });
+
+
+
 const MainPage = () => {
     return (<>
         <style>{styles}</style>            

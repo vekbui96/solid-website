@@ -1,7 +1,6 @@
 .header-container {
   display: flex;
   flex-direction: column;
-  padding-left: 40px;
   gap: 30px;
   height: 100%;
 }
@@ -22,7 +21,11 @@ p{
 }
 
 
-@media screen and (min-width: 1280px) {
+@media screen and (min-width: 600px) {
+  .header-container {
+    padding-left: 40px;
+    gap: 40px;
+  }
   h1{
     font-size: 60px;
   }
