@@ -7,7 +7,7 @@ export const Header = () => {
         <>
         <style>{styles}</style>
             <div class="header-container">
-                <div class="header-details">
+                <div class="header-details left-line">
                     <h1>
                         Ve Bui
                     </h1>

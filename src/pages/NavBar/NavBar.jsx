@@ -32,15 +32,9 @@ export const Navbar = () => {
                     About
                 </li>
                 <li>
-                    projecs
+                    Projects
                 </li>
             </div>
-            <button
-                style={{ "background-color": color(), color: "white", padding: "10px 20px", border: "none", cursor: "pointer" }}
-                onClick={changeColor}
-            >
-                Click me!
-            </button>
         </>
     );
 };

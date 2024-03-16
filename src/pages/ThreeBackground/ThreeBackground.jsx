@@ -8,17 +8,17 @@ export default function ThreeBackground() {
   onMount(() => {
     console.log(containerRef);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000); 
+    scene.background = new THREE.Color(0x00000); 
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 2;
+    camera.position.z = 3;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth - 10, window.innerHeight - 10);
     containerRef.appendChild(renderer.domElement); 
 
     const particlesGeometry = new THREE.BufferGeometry();
-    const particlesCnt = 3000;
+    const particlesCnt = 7000;
 
     const posArray = new Float32Array(particlesCnt * 3); 
     for(let i = 0; i < particlesCnt * 3; i++) {
@@ -28,8 +28,8 @@ export default function ThreeBackground() {
 
     // Materials
     const particlesMaterial = new THREE.PointsMaterial({
-      size: 0.005,
-      color: 0xffffff,
+      size: 0.003,
+      color: 0xffffff
     });
 
     // Particle mesh

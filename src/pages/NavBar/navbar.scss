@@ -1,7 +1,7 @@
 .nav {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
 }
 
 li{
@@ -10,10 +10,3 @@ li{
 }
 
 
-@media screen and (min-width: 600px) {
-    .nav {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-  }
