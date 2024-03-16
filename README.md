@@ -3,6 +3,6 @@ Solid-js Website
 
 Updating Readme
 
-deploying script
+Deploying to Github pages
 
-"gh-pages -d dist"
+yarn dev   
