@@ -10,11 +10,14 @@ import styles from './index.scss?inline'
 const MainPage = () => {
     return (<>
         <style>{styles}</style>            
-        <ThreeBackground/>
         
         <div class="website-container">
-            <Header />
-            <div class="display-manager">test</div>
+            <ThreeBackground/>
+            <div class="content-container">
+                <Header />
+                <div class="display-manager"><div>test</div>
+                <div>test2</div></div>
+            </div>
         </div>
     </>
     )
