@@ -1,0 +1,27 @@
+.experience-position-date{
+    display: flex;
+    justify-content: end;
+}
+
+.experience-description {
+    text-align: right;
+}
+.experience-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.experience-container {
+    display: flex;
+    flex-direction: column;
+    align-items: end;
+}
+
+
+
+
+@media screen and (min-width: 600px) {
+    .experience-position-date{
+        flex-direction: row;
+    }
+}

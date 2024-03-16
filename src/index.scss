@@ -1,5 +1,4 @@
-
-$white-color : rgba(255,255,255,0.8);
+$white-color : rgba(255, 255, 255, 0.8);
 
 * {
     color: $white-color;
@@ -8,14 +7,26 @@ $white-color : rgba(255,255,255,0.8);
     font-size: 13px;
 }
 
-h1{
+h1 {
     font-weight: 100;
     margin-top: 0;
     margin-bottom: 0;
     font-size: 30px;
-  }
+}
 
-p{
+h2 {
+    font-weight: 200;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 20px;
+    text-shadow: 5px 5px 10px black;
+}
+h3 {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+p {
     font-weight: 100;
     margin-top: 0;
     margin-bottom: 0;
@@ -34,7 +45,7 @@ p{
     width: 100%;
     position: relative;
     background-color: black;
-    
+
     .content-container {
         margin: 20px;
         border-width: 1px;
@@ -45,7 +56,7 @@ p{
         padding: 20px;
         z-index: 1;
         width: 100%;
-        
+
 
         .display-manager {
             display: flex;
@@ -53,6 +64,7 @@ p{
             justify-content: end;
             align-items: end;
             flex-grow: 1;
+            text-align: end;
         }
     }
 }
@@ -64,14 +76,14 @@ canvas {
     transform: translate(-50%, -50%);
 }
 
-body{
+body {
     height: 100%;
     width: 100%;
 }
 
 @media screen and (min-width: 600px) {
     .website-container .content-container {
-      margin: 30px;
-      padding: 30px;
+        margin: 30px;
+        padding: 30px;
     }
-  }
+}

@@ -12,7 +12,7 @@ export const Header = () => {
             <div class="header-container">
                 <div class="header-details left-line">
                     <h1>
-                        Ve Bui ff
+                        Ve Bui
                     </h1>
                     <p>
                         Software Engineer

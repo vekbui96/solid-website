@@ -1,7 +1,7 @@
 import { render } from 'solid-js/web';
 import { customElement } from 'solid-element';
 import { Header } from './pages/Header/header.jsx'
-import { HeroArea } from './pages/HeroArea/HeroArea.jsx'
+import { Home } from './pages/Home/Home.jsx'
 import ThreeBackground from './pages/ThreeBackground/ThreeBackground.jsx'
 
 // @ts-ignore
@@ -24,23 +24,24 @@ document.addEventListener('touchend', function (event) {
 
 
 const MainPage = () => {
-const context = useGlobalContext();
-console.log(context.exampleContext());
+    const context = useGlobalContext();
+    console.log(context.exampleContext());
     return (<>
-        <style>{styles}</style>            
+        <style>{styles}</style>
         <div class="website-container">
-            <ThreeBackground/>
+            <ThreeBackground />
             <div class="content-container">
                 <Header />
-                <div class="display-manager"><div>test</div>
-                <div>test2</div></div>
+                <div class="display-manager">
+                    <Home/>
+                </div>
             </div>
         </div>
     </>
     )
 }
-customElement('main-page', props =>(
+customElement('main-page', props => (
     <GlobalContextProvider>
-        <MainPage/>
+        <MainPage />
     </GlobalContextProvider>
 ))
