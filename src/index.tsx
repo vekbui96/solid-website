@@ -6,6 +6,7 @@ import ThreeBackground from './pages/ThreeBackground/ThreeBackground.jsx'
 
 // @ts-ignore
 import styles from './index.scss?inline'
+import { GlobalContextProvider, useGlobalContext } from './context/GlobalContext.jsx';
 
 
 document.addEventListener('touchmove', function (e) {
@@ -23,9 +24,10 @@ document.addEventListener('touchend', function (event) {
 
 
 const MainPage = () => {
+const context = useGlobalContext();
+console.log(context.exampleContext());
     return (<>
         <style>{styles}</style>            
-        
         <div class="website-container">
             <ThreeBackground/>
             <div class="content-container">
@@ -38,5 +40,7 @@ const MainPage = () => {
     )
 }
 customElement('main-page', props =>(
-    <MainPage/>
+    <GlobalContextProvider>
+        <MainPage/>
+    </GlobalContextProvider>
 ))
