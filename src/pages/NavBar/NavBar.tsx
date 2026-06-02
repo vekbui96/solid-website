@@ -5,6 +5,7 @@ import { useGlobalContext } from '../../context/GlobalContext'
 
 const links = [
     { id: "home", label: "Home" },
+    { id: "experience", label: "Experience" },
     { id: "about", label: "About" },
     { id: "projects", label: "Projects" },
 ] as const;

@@ -1,24 +1,17 @@
-import { ExperienceList } from "../../components/Experience/Experience";
 // @ts-ignore
 import styles from "./Home.scss?inline"
 
 export const Home = () => {
-    const startDate = new Date('January 30, 2020');
-    const years = new Date().getFullYear() - startDate.getFullYear();
-
     return (
         <>
         <style>{styles}</style>
-        <section class="home">
-            <p class="eyebrow">{years}+ years of experience</p>
-            <h1 class="hero-title">Building scalable software across frontend, backend, cloud, and AI.</h1>
-            <p class="hero-sub">
-                Full-Stack Software Engineer focused on enterprise applications, scalable APIs,
-                cloud infrastructure, and AI-driven workflows.
+        <section class="home-placeholder">
+            <p class="eyebrow">Portfolio</p>
+            <h1 class="home-title">Coming soon</h1>
+            <p class="home-sub">
+                This page is under construction. In the meantime, take a look at my
+                {" "}<strong>Experience</strong> and <strong>About</strong>.
             </p>
-
-            <h2 class="section-heading">Experience</h2>
-            <ExperienceList />
         </section>
         </>
     )
