@@ -6,7 +6,7 @@ interface IGlobalContextProps {
 
 const globalContext = (props: ParentProps<IGlobalContextProps>) => {
     const [exampleContext, setExampleContext] = createSignal('response');
-    const [page, setPage] = createSignal("hom");
+    const [page, setPage] = createSignal<"home" | "about" | "projects">("home");
     return {exampleContext,setExampleContext, page, setPage}
 }
 
