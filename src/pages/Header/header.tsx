@@ -15,7 +15,7 @@ export const Header = () => {
                         Ve Bui
                     </h1>
                     <p>
-                        Software Engineer
+                        Full-Stack Software Engineer
                     </p>
                 </div>
                 <Navbar />

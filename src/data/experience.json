@@ -1,11 +1,38 @@
 [
   {
     "company": "Capital One",
-    "position": "Front End Developer",
-    "startDate": "2020-01-30",
+    "position": "Senior Software Engineer",
+    "startDate": "2023-11-01",
     "endDate": null,
-    "description": "TODO: short description of the role.",
-    "accomplishments": "TODO: key accomplishment.",
-    "skills": "Java, JavaScript, SolidJS"
+    "description": "Architected and delivered a greenfield enterprise platform for automotive dealer direct mail services end-to-end, owning system design, cloud infrastructure, and full-stack implementation from concept through production.",
+    "accomplishments": "Built scalable Spring Boot microservices and a Solid.js micro frontend architecture on AWS, enabling independent deployment and parallel development across teams.",
+    "skills": "Java, Spring Boot, Solid.js, AWS, SQL"
+  },
+  {
+    "company": "State Farm",
+    "position": "Cloud Software Development Engineer",
+    "startDate": "2021-10-01",
+    "endDate": "2023-11-01",
+    "description": "Architected and delivered enterprise-scale API services in Java and Clojure to process car insurance rates for high-volume internal and external consumers across AWS and Azure.",
+    "accomplishments": "Reduced system downtime by 15% (under 1% total) and cut release cycle time through GitLab CI/CD pipelines and optimized SQL data pipelines.",
+    "skills": "Java, Clojure, AWS, Azure, SQL, GitLab CI/CD"
+  },
+  {
+    "company": "Lockheed Martin",
+    "position": "Software Embedded Engineer",
+    "startDate": "2020-01-01",
+    "endDate": "2021-10-01",
+    "description": "Developed and integrated F-16 avionics software in C++ and Ada using OOP design patterns.",
+    "accomplishments": "Optimized system efficiency and reduced customer costs; implemented Jenkins CI/CD pipelines and led Agile Scrum ceremonies across multiple teams.",
+    "skills": "C++, Ada, Jenkins"
+  },
+  {
+    "company": "Yayvaycay",
+    "position": "Front End Engineer",
+    "startDate": "2019-05-01",
+    "endDate": "2019-08-01",
+    "description": "Built and deployed a customer-facing web application from scratch, integrating third-party APIs and Google Firebase.",
+    "accomplishments": "Grew the customer base by 10%.",
+    "skills": "JavaScript, Firebase"
   }
 ]
