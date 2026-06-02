@@ -1,35 +1,33 @@
+import { For, Show } from "solid-js";
+import experiences from "../../data/experience.json";
 import styles from './Experience.scss?inline'
 
-type experienceType = {
+type ExperienceType = {
     company: string;
     position: string;
     startDate: Date;
     endDate?: Date;
     description: string;
-    acomplishments?: string;
+    accomplishments?: string;
     skills: string;
 }
 
-export const Experience = (props: experienceType) => {
-    const accomplishment = (accomplishment: string) => {
-        if (accomplishment !== undefined) {
-            return <p>Accomplishments: {accomplishment}</p>
-        }
-    }
+export const Experience = (props: ExperienceType) => {
     return (
-        <>
-            <style>{styles}</style>
-            <div class="experience-container">
-                <h2>{props.company}</h2>
-                <div class="experience-position-date">
-                    <h2>{props.position}</h2>
-                    <h3>{props.startDate.getFullYear()} - {props.endDate != undefined ? `${props.endDate}` : "Current"}</h3>
-                </div>
-                <h3 class="experience-description">{props.description}</h3>
-                {accomplishment(props.acomplishments)}
-                <p>Skills: {props.skills}</p>
+        <div class="experience-container">
+            <h2>{props.company}</h2>
+            <div class="experience-position-date">
+                <h2>{props.position}</h2>
+                <h3>
+                    {props.startDate.getFullYear()} - {props.endDate ? props.endDate.getFullYear() : "Current"}
+                </h3>
             </div>
-        </>
+            <h3 class="experience-description">{props.description}</h3>
+            <Show when={props.accomplishments}>
+                <p>Accomplishments: {props.accomplishments}</p>
+            </Show>
+            <p>Skills: {props.skills}</p>
+        </div>
     )
 }
 
@@ -38,8 +36,19 @@ export const ExperienceList = () => {
         <>
             <style>{styles}</style>
             <div class="experience-list">
-                <Experience company="Capital One" position="Front end developer" startDate={new Date()} description="Sample Description" acomplishments="Nothing" skills="Java" />
-                <Experience company="Capital One" position="Front end developer" startDate={new Date()} description="Sample Description" acomplishments="Nothing" skills="Java" />
+                <For each={experiences}>
+                    {(exp) => (
+                        <Experience
+                            company={exp.company}
+                            position={exp.position}
+                            startDate={new Date(exp.startDate)}
+                            endDate={exp.endDate ? new Date(exp.endDate) : undefined}
+                            description={exp.description}
+                            accomplishments={exp.accomplishments}
+                            skills={exp.skills}
+                        />
+                    )}
+                </For>
             </div>
         </>
     )

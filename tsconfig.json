@@ -4,7 +4,8 @@
         "module" : "esnext",
         "jsx": "preserve",
         "jsxImportSource": "solid-js",
-        "moduleResolution" : "node"
+        "moduleResolution" : "node",
+        "resolveJsonModule": true
     },
     "include": ["src"]
 }

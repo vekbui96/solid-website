@@ -1,0 +1,11 @@
+[
+  {
+    "company": "Capital One",
+    "position": "Front End Developer",
+    "startDate": "2020-01-30",
+    "endDate": null,
+    "description": "TODO: short description of the role.",
+    "accomplishments": "TODO: key accomplishment.",
+    "skills": "Java, JavaScript, SolidJS"
+  }
+]

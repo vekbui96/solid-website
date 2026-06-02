@@ -25,7 +25,6 @@ document.addEventListener('touchend', function (event) {
 
 const MainPage = () => {
     const context = useGlobalContext();
-    console.log(context.exampleContext());
     return (<>
         <style>{styles}</style>
         <div class="website-container">
