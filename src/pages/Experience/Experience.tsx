@@ -9,6 +9,7 @@ export const ExperiencePage = () => {
     return (
         <>
         <style>{styles}</style>
+        <div class="content">
         <section class="experience-page">
             <p class="eyebrow">{years}+ years of experience</p>
             <h1 class="hero-title">Building scalable software across frontend, backend, cloud, and AI.</h1>
@@ -20,6 +21,7 @@ export const ExperiencePage = () => {
             <h2 class="section-heading">Experience</h2>
             <ExperienceList />
         </section>
+        </div>
         </>
     )
 }

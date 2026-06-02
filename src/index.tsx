@@ -16,7 +16,7 @@ const MainPage = () => {
         <style>{styles}</style>
         <div class="site">
             <Header />
-            <main class="content">
+            <main class="page-host">
                 <Switch fallback={<Home/>}>
                     <Match when={context?.page() === "home"}><Home/></Match>
                     <Match when={context?.page() === "experience"}><ExperiencePage/></Match>

@@ -6,10 +6,12 @@ export const About = () => {
     return (
         <>
             <style>{styles}</style>
-            <section class="about-container">
-                <h1 class="about-heading">About</h1>
-                <p class="about-bio">{about.bio}</p>
-            </section>
+            <div class="content">
+                <section class="about-container">
+                    <h1 class="about-heading">About</h1>
+                    <p class="about-bio">{about.bio}</p>
+                </section>
+            </div>
         </>
     );
 };
