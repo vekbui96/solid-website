@@ -1,12 +1,29 @@
 .nav {
     display: flex;
-    flex-direction: column;
-    gap: 15px;
+    align-items: center;
+    gap: 4px;
 }
 
-li{
-    display: flex;
-    flex-direction: column;
+.nav-link {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
 }
 
+.nav-link:hover {
+    color: var(--text);
+    background: var(--surface);
+}
 
+.nav-link.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+}

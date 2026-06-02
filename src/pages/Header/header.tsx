@@ -1,25 +1,18 @@
-// import styles from './header.scss?inline'
-
 // @ts-ignore
 import styles from './header.scss?inline'
 import { Navbar } from '../NavBar/NavBar';
 
 export const Header = () => {
-
     return (
         <>
         <style>{styles}</style>
-            <div class="header-container">
-                <div class="header-details left-line">
-                    <h1>
-                        Ve Bui
-                    </h1>
-                    <p>
-                        Full-Stack Software Engineer
-                    </p>
-                </div>
-                <Navbar />
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-name">Ve Bui</span>
+                <span class="brand-title">Full-Stack Software Engineer</span>
             </div>
+            <Navbar />
+        </header>
         </>
     );
 };

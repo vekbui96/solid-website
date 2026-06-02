@@ -1,32 +1,33 @@
-// import styles from './header.scss?inline'
-import navbar from '../../data/navbar.json'
-import { Route } from '@solidjs/router';
+import { For } from 'solid-js';
+// @ts-ignore
 import styles from './NavBar.scss?inline'
-import { createEffect, createSignal } from 'solid-js';
 import { useGlobalContext } from '../../context/GlobalContext'
 
-export const Navbar = () => {
-    // Define a state variable for the button color, with an initial color
-    const context = useGlobalContext();
+const links = [
+    { id: "home", label: "Home" },
+    { id: "about", label: "About" },
+    { id: "projects", label: "Projects" },
+] as const;
 
-    const setPage = (page : string) => {
-        context.setPage(page);
-    }
+export const Navbar = () => {
+    const context = useGlobalContext();
 
     return (
         <>
             <style>{styles}</style>
-            <div class="nav">
-                <li onClick={() => (setPage("home"))}>
-                    Home
-                </li>
-                <li onClick={() => (setPage("about"))}>
-                    About
-                </li>
-                <li onClick={() => (setPage("projects"))}>
-                    Projects
-                </li>
-            </div>
+            <nav class="nav">
+                <For each={links}>
+                    {(link) => (
+                        <button
+                            class="nav-link"
+                            classList={{ active: context?.page() === link.id }}
+                            onClick={() => context?.setPage(link.id)}
+                        >
+                            {link.label}
+                        </button>
+                    )}
+                </For>
+            </nav>
         </>
     );
 };

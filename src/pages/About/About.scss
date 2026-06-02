@@ -1,9 +1,29 @@
 .about-container {
-    max-width: 600px;
-    text-align: end;
+    max-width: 68ch;
+}
 
-    p {
-        line-height: 1.6;
-        margin-bottom: 12px;
+.about-heading {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin: 0 0 20px;
+}
+
+.about-bio {
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--text);
+    line-height: 1.75;
+    margin: 0;
+}
+
+@media screen and (max-width: 600px) {
+    .about-heading {
+        font-size: 26px;
+    }
+
+    .about-bio {
+        font-size: 16px;
     }
 }
