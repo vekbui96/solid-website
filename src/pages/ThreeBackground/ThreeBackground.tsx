@@ -1,9 +1,8 @@
-import { onMount, createSignal, createEffect, onCleanup } from 'solid-js';
+import { onMount, onCleanup } from 'solid-js';
 import * as THREE from 'three';
-import styles from './ThreeBackground.scss?inline'
 
 export default function ThreeBackground() {
-  let containerRef;
+  let containerRef: HTMLDivElement | undefined;
 
   onMount(() => {
     const scene = new THREE.Scene();

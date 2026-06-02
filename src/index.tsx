@@ -1,12 +1,11 @@
-import { render } from 'solid-js/web';
 import { customElement } from 'solid-element';
-import { Header } from './pages/Header/header.jsx'
-import { Home } from './pages/Home/Home.jsx'
-import ThreeBackground from './pages/ThreeBackground/ThreeBackground.jsx'
+import { Header } from './pages/Header/header'
+import { Home } from './pages/Home/Home'
+import ThreeBackground from './pages/ThreeBackground/ThreeBackground'
 
 // @ts-ignore
 import styles from './index.scss?inline'
-import { GlobalContextProvider, useGlobalContext } from './context/GlobalContext.jsx';
+import { GlobalContextProvider, useGlobalContext } from './context/GlobalContext';
 
 
 document.addEventListener('touchmove', function (e) {
