@@ -3,7 +3,9 @@ import { ParentProps, createContext, createSignal, useContext } from "solid-js"
 const globalContext = () => {
     const [activeSection, setActiveSection] = createSignal("hero");
     const [onDark, setOnDark] = createSignal(false);
-    return { activeSection, setActiveSection, onDark, setOnDark };
+    // set by the Fit Analyzer to deep-link/open a project in the showcase
+    const [openProjectId, setOpenProjectId] = createSignal<string | null>(null);
+    return { activeSection, setActiveSection, onDark, setOnDark, openProjectId, setOpenProjectId };
 }
 
 const GlobalContext = createContext<ReturnType<typeof globalContext>>();

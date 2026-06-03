@@ -1,5 +1,6 @@
 import { ExperienceList } from "../../components/Experience/Experience";
 import { ProjectShowcase } from "../../components/Projects/ProjectShowcase";
+import { FitAnalyzer } from "../../components/Fit/FitAnalyzer";
 import { reveal } from "../../utils/reveal";
 // @ts-ignore
 import styles from "./Home.scss?inline"
@@ -177,6 +178,11 @@ export const Home = () => {
 
                     <ProjectShowcase />
                 </div>
+            </section>
+
+            {/* ──────────────────── FIT ANALYZER ──────────────────── */}
+            <section class="hp-fit hp-scene-dark" id="fit" data-nav-dark>
+                <FitAnalyzer />
             </section>
 
             {/* ──────────────────── EXPERIENCE ──────────────────── */}

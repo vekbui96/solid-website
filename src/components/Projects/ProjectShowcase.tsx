@@ -1,5 +1,6 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, createEffect, For, Show } from "solid-js";
 import projects from "../../data/projects.json";
+import { useGlobalContext } from "../../context/GlobalContext";
 // @ts-ignore
 import styles from "./ProjectShowcase.scss?inline";
 
@@ -17,9 +18,11 @@ const catLabel: Record<string, string> = {
 };
 
 export const ProjectShowcase = () => {
+    const ctx = useGlobalContext();
     const [filter, setFilter] = createSignal<string>("all");
     const [open, setOpen] = createSignal<string | null>(null);
     const [showAll, setShowAll] = createSignal(false);
+    let gridEl: HTMLDivElement | undefined;
 
     const visible = () => {
         if (filter() !== "all") return projects.filter((p) => p.categories.includes(filter()));
@@ -27,6 +30,21 @@ export const ProjectShowcase = () => {
     };
 
     const toggle = (id: string) => setOpen(open() === id ? null : id);
+
+    // deep-link: the Fit Analyzer requests a project — reveal, open, and scroll to it
+    createEffect(() => {
+        const id = ctx?.openProjectId();
+        if (!id) return;
+        setFilter("all");
+        setShowAll(true);
+        setOpen(id);
+        setTimeout(() => {
+            const root = gridEl?.getRootNode() as any;
+            const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+            root?.getElementById?.(`proj-${id}`)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+            ctx?.setOpenProjectId(null);
+        }, 70);
+    });
 
     return (
         <>
@@ -51,10 +69,10 @@ export const ProjectShowcase = () => {
                 </For>
             </div>
 
-            <div class="pj-grid">
+            <div class="pj-grid" ref={gridEl}>
                 <For each={visible()}>
                     {(p) => (
-                        <article class="pj-card" classList={{ open: open() === p.id, featured: (p as any).featured }}>
+                        <article id={`proj-${p.id}`} class="pj-card" classList={{ open: open() === p.id, featured: (p as any).featured }}>
                             <button
                                 class="pj-head"
                                 aria-expanded={open() === p.id}

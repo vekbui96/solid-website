@@ -6,12 +6,13 @@ import { useGlobalContext } from '../../context/GlobalContext'
 const links = [
     { id: "story", label: "Story" },
     { id: "projects", label: "Projects" },
+    { id: "fit", label: "Fit" },
     { id: "experience", label: "Experience" },
     { id: "contact", label: "Contact" },
 ] as const;
 
 // sections tracked by the scroll-spy (includes ones without a nav link)
-const tracked = ["hero", "story", "ai", "projects", "experience", "systems", "contact"];
+const tracked = ["hero", "story", "ai", "projects", "fit", "experience", "systems", "contact"];
 
 export const Navbar = () => {
     const ctx = useGlobalContext();
