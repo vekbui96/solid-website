@@ -187,7 +187,8 @@
       "State management",
       "System design"
     ],
-    "curated": true
+    "curated": true,
+    "takeaway": "Owning this end-to-end — micro-frontend, BFF, validation, queues, caching, and observability — is the clearest example of me shipping a complete product, not just a layer."
   },
   {
     "id": "context-engineering",
@@ -215,7 +216,8 @@
       "Prompt engineering",
       "Context engineering",
       "Agent design"
-    ]
+    ],
+    "takeaway": "The quality of an AI system is mostly the quality of its context. This is the unglamorous work that makes agents reliable instead of impressive-in-a-demo."
   },
   {
     "id": "incident-commander",
@@ -243,7 +245,8 @@
       "Agents",
       "Root-cause analysis"
     ],
-    "curated": true
+    "curated": true,
+    "takeaway": "It turns my real observability and on-call experience into an AI system that compresses the slowest part of an incident: understanding what's actually happening."
   },
   {
     "id": "ai-eval",
@@ -264,7 +267,8 @@
       "Production AI",
       "Evaluation systems",
       "AI governance"
-    ]
+    ],
+    "takeaway": "If you can't measure an AI system's quality, cost, and failure modes, you can't safely run it in production. Evaluation is the foundation of trustworthy AI."
   },
   {
     "id": "workflow-agents",
@@ -291,7 +295,8 @@
       "Safe AI design",
       "Enterprise governance",
       "Workflow automation"
-    ]
+    ],
+    "takeaway": "The interesting constraint isn't the automation — it's pairing it with the right human-in-the-loop controls so teams actually trust it."
   },
   {
     "id": "arch-review-agent",
@@ -311,7 +316,8 @@
       "System design",
       "AI reasoning",
       "Architecture expertise"
-    ]
+    ],
+    "takeaway": "Encodes architecture-review judgment into a tool, giving teams a fast first pass on scalability, reliability, security, and maintainability before scarce senior time is spent."
   },
   {
     "id": "image-pipeline",
@@ -364,7 +370,8 @@
     "skills": [
       "Enterprise integration",
       "Security patterns"
-    ]
+    ],
+    "takeaway": "Reusable security infrastructure means every team gets correct service-to-service auth by default, instead of each one reinventing it (often subtly wrong)."
   },
   {
     "id": "rls-architecture",
@@ -389,7 +396,8 @@
     "skills": [
       "Security architecture",
       "Database engineering"
-    ]
+    ],
+    "takeaway": "Security enforced at the data layer, not bolted on at the edge — the difference between 'we check permissions' and 'the database cannot return the wrong row.'"
   },
   {
     "id": "jsonb-migration",
@@ -412,7 +420,8 @@
     "skills": [
       "Database design",
       "Data architecture"
-    ]
+    ],
+    "takeaway": "Evolving a live schema without breaking consumers is the quiet skill that separates shipping features from safely changing a system in flight."
   },
   {
     "id": "publishing-engine",
@@ -439,7 +448,8 @@
     "skills": [
       "Workflow orchestration",
       "Backend automation"
-    ]
+    ],
+    "takeaway": "Scheduled, retry-safe, auditable publication is the difference between 'it usually works' and a system you can trust to run unattended."
   },
   {
     "id": "validation-service",
@@ -459,6 +469,13 @@
       "API design",
       "Domain modeling",
       "Validation architecture"
+    ],
+    "flow": [
+      "request",
+      "input validation",
+      "business rules",
+      "async downstream",
+      "aggregated errors"
     ]
   },
   {
@@ -482,7 +499,15 @@
     "skills": [
       "Scalability",
       "Performance engineering"
-    ]
+    ],
+    "problem": "Repeated metadata lookups added latency and load on downstream services; responses had to stay fast and consistent under high read volume.",
+    "flow": [
+      "request",
+      "cache",
+      "downstream",
+      "response"
+    ],
+    "takeaway": "Caching is easy until invalidation and freshness matter — getting those right is what makes a cache an asset instead of a bug factory."
   },
   {
     "id": "population-service",
@@ -500,6 +525,13 @@
     "skills": [
       "Business logic architecture",
       "Service design"
+    ],
+    "problem": "Campaign audiences are computed over large datasets, where a miscount or a slow response quietly breaks downstream targeting.",
+    "flow": [
+      "dataset",
+      "validation",
+      "count",
+      "result"
     ]
   },
   {
@@ -519,7 +551,15 @@
     "skills": [
       "Production engineering",
       "Reliability engineering"
-    ]
+    ],
+    "problem": "Production issues were hard to see and slow to diagnose without consistent dashboards, correlation tracing, and alerting.",
+    "flow": [
+      "services",
+      "traces + metrics",
+      "dashboards",
+      "alerts"
+    ],
+    "takeaway": "You can't operate what you can't see. Investing in observability is what turned incidents from guesswork into root-cause."
   },
   {
     "id": "gateway-timeout",
@@ -537,7 +577,15 @@
     "skills": [
       "Distributed systems",
       "Incident investigation"
-    ]
+    ],
+    "problem": "Intermittent 504s across distributed services were hard to reproduce and easy to misattribute without end-to-end tracing.",
+    "flow": [
+      "correlation",
+      "request tracing",
+      "bottleneck",
+      "root cause"
+    ],
+    "takeaway": "Chasing a 504 across distributed systems rewards tracing discipline and patience over guessing — and documents the system for everyone after you."
   },
   {
     "id": "cyber-logging",
@@ -559,7 +607,8 @@
       "Technical leadership",
       "Architecture analysis",
       "Security engineering"
-    ]
+    ],
+    "problem": "Application logging had to migrate to a next-generation security platform under evolving compliance and architectural constraints."
   },
   {
     "id": "validation-framework",
@@ -585,6 +634,13 @@
       "Frontend architecture",
       "Performance optimization",
       "Reusable component design"
+    ],
+    "problem": "Complex, high-frequency user input needed consistent, fast validation without flooding the backend or confusing the user.",
+    "flow": [
+      "input",
+      "client validation",
+      "async API check",
+      "aggregated errors"
     ]
   },
   {
@@ -606,7 +662,15 @@
       "Frontend scalability",
       "Team enablement"
     ],
-    "curated": true
+    "curated": true,
+    "problem": "Teams kept rebuilding the same UI primitives inconsistently, slowing delivery and fragmenting the experience.",
+    "flow": [
+      "design tokens",
+      "components",
+      "Storybook",
+      "teams"
+    ],
+    "takeaway": "A shared component system is leverage: it makes every future feature faster, more consistent, and more accessible by default."
   },
   {
     "id": "image-upload",
@@ -630,6 +694,13 @@
       "File handling",
       "Frontend performance",
       "Rich interactive experiences"
+    ],
+    "problem": "Users needed a rich upload experience — preview, crop, retry — that stayed fast and safe even with large files.",
+    "flow": [
+      "drag & drop",
+      "preview + crop",
+      "validate",
+      "secure submit"
     ]
   },
   {
@@ -649,6 +720,13 @@
       "State architecture",
       "User personalization",
       "Frontend infrastructure"
+    ],
+    "problem": "Users expect their light/dark preference to apply instantly and persist across sessions and the whole app.",
+    "flow": [
+      "preference",
+      "global state",
+      "local storage",
+      "persisted UI"
     ]
   },
   {
@@ -673,6 +751,13 @@
     "skills": [
       "Application architecture",
       "Complex UI state management"
+    ],
+    "problem": "A multi-step workflow needed controlled progression and unsaved-changes safety without relying on traditional URL routing.",
+    "flow": [
+      "step state",
+      "guards",
+      "navigation",
+      "unsaved-changes protection"
     ]
   },
   {
@@ -693,7 +778,9 @@
       "User-centered engineering",
       "Accessibility best practices",
       "Production-quality frontend"
-    ]
+    ],
+    "problem": "The product needed to be usable by everyone — keyboard, screen reader, sufficient contrast — for both real users and compliance.",
+    "takeaway": "Accessibility isn't a checklist at the end; building it in is what makes a frontend genuinely production-quality."
   },
   {
     "id": "frontend-perf",
@@ -717,7 +804,8 @@
       "Performance engineering",
       "Scalability",
       "Frontend architecture"
-    ]
+    ],
+    "problem": "As the app grew, redundant requests and unnecessary re-renders hurt responsiveness; the data layer needed to do less work."
   },
   {
     "id": "save-queue",
