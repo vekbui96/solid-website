@@ -98,6 +98,36 @@ export const ProjectShowcase = () => {
                                         </ul>
                                     </div>
 
+                                    <Show when={(p as any).features}>
+                                        <div class="pj-features">
+                                            <span class="pj-label">Features</span>
+                                            <div class="pj-feature-grid">
+                                                <For each={(p as any).features as { name: string; desc: string }[]}>
+                                                    {(f) => (
+                                                        <div class="pj-feature">
+                                                            <span class="pj-feature-name">{f.name}</span>
+                                                            <span class="pj-feature-desc">{f.desc}</span>
+                                                        </div>
+                                                    )}
+                                                </For>
+                                            </div>
+                                        </div>
+                                    </Show>
+
+                                    <Show when={(p as any).examples}>
+                                        <div class="pj-examples">
+                                            <span class="pj-label">Ask it</span>
+                                            <For each={(p as any).examples as { q: string; a: string }[]}>
+                                                {(ex) => (
+                                                    <div class="pj-example">
+                                                        <span class="pj-q">{ex.q}</span>
+                                                        <span class="pj-a">{ex.a}</span>
+                                                    </div>
+                                                )}
+                                            </For>
+                                        </div>
+                                    </Show>
+
                                     <div class="pj-skills">
                                         <For each={p.skills}>{(s) => <span class="pj-skill">{s}</span>}</For>
                                     </div>

@@ -17,6 +17,33 @@
     "skills": ["AI systems", "RAG", "Agent orchestration", "Workflow automation"]
   },
   {
+    "id": "codebase-intelligence",
+    "title": "AI Codebase Intelligence Platform",
+    "tagline": "Turns hundreds of repositories into queryable engineering knowledge.",
+    "categories": ["ai", "backend"],
+    "featured": true,
+    "flow": ["repository graph", "metadata extraction", "knowledge index", "vector DB", "AI agent layer", "answers · diagrams · docs · impact"],
+    "problem": "Large orgs have hundreds of repos, many teams, unknown dependencies, and tribal knowledge buried in people's heads. Ask \"how does Campaign Builder work?\" and the answer is too often \"ask Bob.\" That's a business risk.",
+    "highlights": [
+      "Maps relationships across a master repo of symlinked repositories",
+      "Analyzes source, package dependencies, API relationships, service calls, infra, and docs",
+      "Generates architecture diagrams, data flows, system maps, and dependency graphs"
+    ],
+    "features": [
+      { "name": "Repository Discovery", "desc": "Automatically maps relationships across repositories." },
+      { "name": "Architecture Generation", "desc": "Creates system diagrams directly from source code." },
+      { "name": "Data Flow Discovery", "desc": "Traces service interactions and dependencies." },
+      { "name": "AI Knowledge Layer", "desc": "Engineers ask natural-language questions about the system." },
+      { "name": "Impact Analysis", "desc": "Predicts the downstream effects of a change before you make it." }
+    ],
+    "examples": [
+      { "q": "Explain how Campaign Builder works.", "a": "Searches repos for the relevant services, controllers, downstream integrations, and database access, then generates an architecture explanation." },
+      { "q": "What's impacted if I modify CreateCampaign?", "a": "Traces dependencies and produces an impact analysis with an architecture graph." },
+      { "q": "Generate onboarding documentation.", "a": "Scans code, READMEs, and package relationships to produce living documentation." }
+    ],
+    "skills": ["AI systems", "RAG", "Code analysis", "Developer tooling", "System design"]
+  },
+  {
     "id": "incident-commander",
     "title": "AI Incident Commander",
     "tagline": "Detects, triages, and narrates incidents in real time.",
@@ -30,21 +57,6 @@
       "Generates postmortem drafts and coordinates comms"
     ],
     "skills": ["AI systems", "Observability", "Agents", "Root-cause analysis"]
-  },
-  {
-    "id": "onboarding-agent",
-    "title": "AI Codebase Onboarding Agent",
-    "tagline": "Turns a repository into an interactive mentor.",
-    "categories": ["ai"],
-    "flow": ["repo index", "graph + RAG", "guided Q&A"],
-    "problem": "New engineers take weeks to get productive in large, unfamiliar codebases.",
-    "highlights": [
-      "Upload a repository and index it into a graph + vector store",
-      "Architecture explanations on demand",
-      "Service maps and data-flow diagrams",
-      "Technical-debt analysis with citations"
-    ],
-    "skills": ["AI systems", "Developer tooling", "RAG", "Code analysis"]
   },
   {
     "id": "campaign-builder",
