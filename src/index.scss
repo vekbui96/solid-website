@@ -1,26 +1,7 @@
+@use './ui/theme/tokens';
+
 .site {
-    /* light base (Acts I–II, Capabilities, Close) */
-    --bg: #ffffff;
-    --surface: #f8fafc;
-    --text: #0b1220;
-    --muted: #5b6577;
-    --border: #e5e8ee;
-    --accent: #2563eb;
-    --accent-soft: rgba(37, 99, 235, 0.08);
-
-    /* dark scene tokens (Act III + Projects) */
-    --d-bg: #0b0e14;
-    --d-surface: #121723;
-    --d-text: #e6eaf2;
-    --d-muted: #8b95a7;
-    --d-border: #222a38;
-    --d-accent: #22d3ee;
-    --d-accent-2: #a78bfa;
-
-    --font-display: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
-    --maxw: 1120px;
+    @include tokens.design-tokens;
 
     min-height: 100vh;
     display: flex;

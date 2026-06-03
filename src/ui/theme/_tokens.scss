@@ -1,0 +1,41 @@
+// Design tokens — the single source of truth for the site AND Storybook.
+// Exposed as mixins so they can be applied under any selector (`.site`,
+// `.ui-theme`) without duplicating values.
+
+@mixin design-tokens {
+  /* light base (Acts I–II, Capabilities, Close) */
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --text: #0b1220;
+  --muted: #5b6577;
+  --border: #e5e8ee;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+
+  /* dark scene tokens (Act III + Projects) */
+  --d-bg: #0b0e14;
+  --d-surface: #121723;
+  --d-text: #e6eaf2;
+  --d-muted: #8b95a7;
+  --d-border: #222a38;
+  --d-accent: #22d3ee;
+  --d-accent-2: #a78bfa;
+
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --maxw: 1120px;
+}
+
+// Remap the light tokens to the dark-scene values. Apply to an element that
+// already has `design-tokens` (so the `--d-*` source values exist). This is the
+// same trick the site uses for `.hp-scene-dark`.
+@mixin dark-tokens {
+  --bg: var(--d-bg);
+  --surface: var(--d-surface);
+  --text: var(--d-text);
+  --muted: var(--d-muted);
+  --border: var(--d-border);
+  --accent: var(--d-accent);
+  --accent-soft: rgba(34, 211, 238, 0.12);
+}
