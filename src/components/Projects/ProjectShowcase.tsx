@@ -86,10 +86,12 @@ export const ProjectShowcase = () => {
                                         </div>
                                     </Show>
 
-                                    <p class="pj-problem">
-                                        <span class="pj-label">Problem</span>
-                                        {p.problem}
-                                    </p>
+                                    <Show when={(p as any).problem}>
+                                        <p class="pj-problem">
+                                            <span class="pj-label">Problem</span>
+                                            {(p as any).problem}
+                                        </p>
+                                    </Show>
 
                                     <div class="pj-highlights">
                                         <span class="pj-label">Highlights</span>
@@ -97,6 +99,15 @@ export const ProjectShowcase = () => {
                                             <For each={p.highlights}>{(h) => <li>{h}</li>}</For>
                                         </ul>
                                     </div>
+
+                                    <Show when={(p as any).challenges}>
+                                        <div class="pj-highlights">
+                                            <span class="pj-label">Challenges</span>
+                                            <ul>
+                                                <For each={(p as any).challenges as string[]}>{(c) => <li>{c}</li>}</For>
+                                            </ul>
+                                        </div>
+                                    </Show>
 
                                     <Show when={(p as any).features}>
                                         <div class="pj-features">

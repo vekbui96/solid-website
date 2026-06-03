@@ -71,21 +71,6 @@
     ]
   },
   {
-    "id": "incident-commander",
-    "title": "AI Incident Commander",
-    "tagline": "Detects, triages, and narrates incidents in real time.",
-    "categories": ["ai"],
-    "flow": ["alerts", "reasoning loop", "runbooks", "comms"],
-    "problem": "During incidents, engineers waste critical minutes correlating signals across logs and dashboards.",
-    "highlights": [
-      "Reads logs and telemetry across systems",
-      "Reconstructs the incident timeline automatically",
-      "Identifies likely root causes",
-      "Generates postmortem drafts and coordinates comms"
-    ],
-    "skills": ["AI systems", "Observability", "Agents", "Root-cause analysis"]
-  },
-  {
     "id": "campaign-builder",
     "title": "Campaign Builder Platform",
     "tagline": "A multi-step platform for creating and managing marketing campaigns.",
@@ -105,6 +90,82 @@
     "skills": ["Frontend architecture", "Backend architecture", "State management", "System design"]
   },
   {
+    "id": "context-engineering",
+    "title": "Context Engineering Framework",
+    "tagline": "Reusable context strategies that improve AI output quality.",
+    "categories": ["ai"],
+    "flow": ["knowledge", "specifications", "repo intelligence", "org guidance", "agent"],
+    "problem": "LLMs perform poorly without relevant context. The fix is structured context-assembly pipelines that give agents the right information at the right time.",
+    "highlights": [
+      "Knowledge retrieval",
+      "Specification retrieval",
+      "Repository intelligence",
+      "Organizational guidance",
+      "Workflow context"
+    ],
+    "skills": ["Prompt engineering", "Context engineering", "Agent design"]
+  },
+  {
+    "id": "incident-commander",
+    "title": "AI Incident Commander",
+    "tagline": "Detects, triages, and narrates incidents in real time.",
+    "categories": ["ai"],
+    "flow": ["alerts", "reasoning loop", "runbooks", "comms"],
+    "problem": "During incidents, engineers waste critical minutes correlating signals across logs and dashboards.",
+    "highlights": [
+      "Reads logs and telemetry across systems",
+      "Reconstructs the incident timeline automatically",
+      "Identifies likely root causes",
+      "Generates postmortem drafts and coordinates comms"
+    ],
+    "skills": ["AI systems", "Observability", "Agents", "Root-cause analysis"]
+  },
+  {
+    "id": "ai-eval",
+    "title": "AI Evaluation & Observability Platform",
+    "tagline": "Measuring and monitoring AI system performance in production-like environments.",
+    "categories": ["ai"],
+    "problem": "AI systems are hard to trust without measurement. This tooling makes quality, cost, and reliability observable.",
+    "highlights": [
+      "Latency and cost tracking",
+      "Hallucination-rate measurement",
+      "Retrieval quality scoring",
+      "Tool success rates",
+      "User-satisfaction signals"
+    ],
+    "skills": ["Production AI", "Evaluation systems", "AI governance"]
+  },
+  {
+    "id": "workflow-agents",
+    "title": "Engineering Workflow Automation Agents",
+    "tagline": "Agents that automate repetitive engineering tasks with human oversight.",
+    "categories": ["ai"],
+    "flow": ["AI suggests", "user reviews", "approval", "execution"],
+    "problem": "Engineers spend hours on repetitive workflow tasks that agents can draft — but only with safe, human-in-the-loop controls.",
+    "highlights": [
+      "Ticket generation",
+      "Documentation creation",
+      "Architecture reviews",
+      "Impact analysis",
+      "Requirement decomposition"
+    ],
+    "skills": ["Safe AI design", "Enterprise governance", "Workflow automation"]
+  },
+  {
+    "id": "arch-review-agent",
+    "title": "AI Architecture Review Agent",
+    "tagline": "Evaluates software architectures and recommends improvements.",
+    "categories": ["ai"],
+    "problem": "Architecture reviews are scarce senior-engineer time. An agent can give a first-pass critique across scalability, reliability, performance, security, and maintainability.",
+    "highlights": [
+      "Diagram analysis",
+      "Architecture critique",
+      "Risk identification",
+      "Improvement recommendations"
+    ],
+    "skills": ["System design", "AI reasoning", "Architecture expertise"]
+  },
+  {
     "id": "image-pipeline",
     "title": "Secure Image Processing Pipeline",
     "tagline": "A secure upload workflow that sanitizes images before processing.",
@@ -118,6 +179,247 @@
       "Robust error handling and quarantine paths"
     ],
     "skills": ["Security engineering", "Backend engineering", "Enterprise systems"]
+  },
+  {
+    "id": "oauth-framework",
+    "title": "OAuth Integration Framework",
+    "tagline": "Reusable authentication infrastructure for secure service-to-service communication.",
+    "categories": ["backend"],
+    "flow": ["client", "BFF", "OAuth filter", "token management", "downstream service"],
+    "problem": "Downstream enterprise services required secure, consistent service-to-service authentication instead of ad-hoc token handling.",
+    "highlights": [
+      "Token acquisition",
+      "Request interception",
+      "Authorization header injection",
+      "Service-to-service authentication"
+    ],
+    "skills": ["Enterprise integration", "Security patterns"]
+  },
+  {
+    "id": "rls-architecture",
+    "title": "Row-Level Security Architecture",
+    "tagline": "Role-based row-level security enforcing data isolation across users and services.",
+    "categories": ["backend"],
+    "flow": ["read", "admin", "superuser", "machine accounts"],
+    "problem": "Multi-tenant data needed fine-grained isolation across distinct roles without leaking across boundaries.",
+    "highlights": [
+      "Fine-grained authorization",
+      "Multi-tenant access controls",
+      "Secure service accounts",
+      "Administrative bypass strategies"
+    ],
+    "skills": ["Security architecture", "Database engineering"]
+  },
+  {
+    "id": "jsonb-migration",
+    "title": "JSONB Data Model Migration",
+    "tagline": "Evolved a rigid schema to a flexible JSON-based model with backward compatibility.",
+    "categories": ["backend"],
+    "flow": ["V1: paymentChargeId", "V2: paymentChargeOptions[]"],
+    "problem": "A simple, rigid schema could no longer represent evolving payment options without breaking existing clients.",
+    "highlights": [
+      "Data migration strategy",
+      "Backward compatibility",
+      "Schema evolution",
+      "Production rollout planning"
+    ],
+    "skills": ["Database design", "Data architecture"]
+  },
+  {
+    "id": "publishing-engine",
+    "title": "Publishing Workflow Engine",
+    "tagline": "A scheduled publishing system that coordinates downstream publication.",
+    "categories": ["backend"],
+    "flow": ["pending campaigns", "scheduler", "validation", "publish", "audit log"],
+    "problem": "Pending campaigns needed reliable, auditable, scheduled publication with retry safety.",
+    "highlights": [
+      "Scheduled processing",
+      "Retry handling",
+      "Sequential execution",
+      "State management",
+      "Auditability"
+    ],
+    "skills": ["Workflow orchestration", "Backend automation"]
+  },
+  {
+    "id": "validation-service",
+    "title": "Enterprise Validation Service",
+    "tagline": "A layered validation architecture for sync and async requirements.",
+    "categories": ["backend"],
+    "problem": "Complex inputs needed validation at multiple layers with consistent, aggregated error responses.",
+    "highlights": [
+      "Input validation",
+      "Business rule validation",
+      "Async downstream validation",
+      "Aggregated error responses"
+    ],
+    "skills": ["API design", "Domain modeling", "Validation architecture"]
+  },
+  {
+    "id": "metadata-caching",
+    "title": "Metadata & Caching Service",
+    "tagline": "Metadata retrieval with intelligent caching to reduce latency.",
+    "categories": ["backend"],
+    "highlights": [
+      "Resource caching",
+      "Reduced downstream calls",
+      "Performance optimization",
+      "Consistent metadata contracts"
+    ],
+    "challenges": ["Cache invalidation", "Freshness guarantees", "Response consistency"],
+    "skills": ["Scalability", "Performance engineering"]
+  },
+  {
+    "id": "population-service",
+    "title": "Population Count Processing Service",
+    "tagline": "Backend services validating and calculating campaign audience populations.",
+    "categories": ["backend"],
+    "highlights": [
+      "Large dataset processing",
+      "Validation orchestration",
+      "Error aggregation",
+      "Request optimization"
+    ],
+    "skills": ["Business logic architecture", "Service design"]
+  },
+  {
+    "id": "observability-platform",
+    "title": "Observability & Monitoring Platform",
+    "tagline": "Observability strategies for system visibility and faster incident response.",
+    "categories": ["backend"],
+    "highlights": [
+      "Splunk dashboards",
+      "Correlation tracking",
+      "Performance monitoring",
+      "Alerting and request tracing",
+      "Outcome: identified gateway-timeout patterns and reduced troubleshooting effort"
+    ],
+    "skills": ["Production engineering", "Reliability engineering"]
+  },
+  {
+    "id": "gateway-timeout",
+    "title": "Gateway Timeout Investigation",
+    "tagline": "Root-caused complex 504 timeouts across distributed systems.",
+    "categories": ["backend"],
+    "highlights": [
+      "Correlation analysis",
+      "Request tracing",
+      "Performance bottleneck identification",
+      "Cross-service debugging"
+    ],
+    "skills": ["Distributed systems", "Incident investigation"]
+  },
+  {
+    "id": "cyber-logging",
+    "title": "Cyber Logging Migration",
+    "tagline": "Led discovery and planning to migrate logging to a next-gen security platform.",
+    "categories": ["backend"],
+    "challenges": ["Evolving requirements", "Architectural constraints", "Compliance considerations"],
+    "highlights": [
+      "Technical discovery and implementation planning",
+      "Migration to a next-generation security logging platform"
+    ],
+    "skills": ["Technical leadership", "Architecture analysis", "Security engineering"]
+  },
+  {
+    "id": "validation-framework",
+    "title": "Enterprise Validation Framework",
+    "tagline": "A reusable validation architecture for sync and async rules across complex inputs.",
+    "categories": ["frontend"],
+    "highlights": [
+      "ZIP and ZIP+4 validation",
+      "Async API validation",
+      "Bulk entry support",
+      "Aggregated error handling",
+      "Reusable validation patterns",
+      "Cached validation responses"
+    ],
+    "challenges": ["Large user-entered datasets", "High validation frequency", "Consistent user feedback"],
+    "skills": ["Frontend architecture", "Performance optimization", "Reusable component design"]
+  },
+  {
+    "id": "component-library",
+    "title": "Component Library & Storybook System",
+    "tagline": "Reusable UI components and Storybook docs for consistency and productivity.",
+    "categories": ["frontend"],
+    "highlights": [
+      "Shared component architecture",
+      "Interactive Storybook examples",
+      "Accessibility testing",
+      "Design standardization",
+      "Components: dropdowns, tabs, progress indicators, modals, accordions, form controls"
+    ],
+    "skills": ["Design systems", "Frontend scalability", "Team enablement"]
+  },
+  {
+    "id": "image-upload",
+    "title": "Advanced Image Upload Workflow",
+    "tagline": "A complete upload experience: preview, crop, validate, secure submit.",
+    "categories": ["frontend"],
+    "highlights": [
+      "Drag-and-drop uploads",
+      "Image previews and cropping controls",
+      "Re-upload support",
+      "Validation feedback and error recovery"
+    ],
+    "challenges": ["Browser memory management", "Image-processing performance", "UX for large files"],
+    "skills": ["File handling", "Frontend performance", "Rich interactive experiences"]
+  },
+  {
+    "id": "theme-management",
+    "title": "Dynamic Theme Management System",
+    "tagline": "Persistent theming with user preferences across sessions.",
+    "categories": ["frontend"],
+    "highlights": [
+      "Light and dark modes",
+      "Local-storage persistence",
+      "Global state synchronization",
+      "Accessibility considerations"
+    ],
+    "skills": ["State architecture", "User personalization", "Frontend infrastructure"]
+  },
+  {
+    "id": "nav-orchestration",
+    "title": "Navigation & Workflow Orchestration",
+    "tagline": "A custom workflow navigation system controlling progression without traditional routing.",
+    "categories": ["frontend"],
+    "highlights": [
+      "Section visibility management",
+      "Workflow progression logic",
+      "Conditional navigation",
+      "Scroll-aware interactions",
+      "Unsaved-changes protection"
+    ],
+    "challenges": ["Managing application flow", "Maintaining state consistency", "Preventing accidental data loss"],
+    "skills": ["Application architecture", "Complex UI state management"]
+  },
+  {
+    "id": "accessibility",
+    "title": "Accessibility Modernization",
+    "tagline": "Reviews and improvements for a more inclusive user experience.",
+    "categories": ["frontend"],
+    "highlights": [
+      "Keyboard navigation",
+      "Screen-reader compatibility",
+      "Semantic HTML improvements",
+      "Focus management",
+      "Contrast validation"
+    ],
+    "skills": ["User-centered engineering", "Accessibility best practices", "Production-quality frontend"]
+  },
+  {
+    "id": "frontend-perf",
+    "title": "Frontend Performance & Data Layer Optimization",
+    "tagline": "Caching, memoization, and efficient resource management for responsiveness.",
+    "categories": ["frontend"],
+    "flow": ["createResource", "reactive signals", "cached API responses"],
+    "highlights": [
+      "Resource caching and request deduplication",
+      "Memoization",
+      "Lazy-loading patterns",
+      "Reduced unnecessary re-renders"
+    ],
+    "skills": ["Performance engineering", "Scalability", "Frontend architecture"]
   },
   {
     "id": "save-queue",
