@@ -154,6 +154,35 @@ section[id] { scroll-margin-top: 84px; }
     padding: 6px 12px;
 }
 .hp-act-alt .hp-beats li { background: #fff; }
+
+.hp-details {
+    list-style: none;
+    padding: 0;
+    margin: 22px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.hp-details li {
+    position: relative;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.hp-details li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.hp-act-alt .hp-details li::before { background: #4f46e5; }
+.hp-d-label { font-weight: 600; font-size: 15px; color: var(--text); letter-spacing: -0.01em; }
+.hp-d-desc { font-size: 14px; color: var(--muted); line-height: 1.55; }
 .hp-punch {
     font-size: 20px;
     font-weight: 600;

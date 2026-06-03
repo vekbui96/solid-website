@@ -1,4 +1,4 @@
-import { createMemo, createEffect, createSignal } from 'solid-js';
+import { createMemo, createEffect, createSignal, Show } from 'solid-js';
 // @ts-ignore
 import styles from './header.scss?inline'
 import { Navbar } from '../NavBar/NavBar';
@@ -43,7 +43,10 @@ export const Header = () => {
         <header class="topbar" classList={{ "topbar-dark": ctx?.onDark() }}>
             <button class="brand" onClick={toTop}>
                 <span class="brand-name">Ve Bui</span>
-                <span class="brand-title" classList={{ "brand-title-fade": fade() }}>{title()}</span>
+                <span class="brand-title" classList={{ "brand-title-fade": fade() }}>
+                    <Show when={title() === "AI Engineer"}><span class="brand-spark" aria-hidden="true">✦</span></Show>
+                    {title()}
+                </span>
             </button>
             <Navbar />
         </header>

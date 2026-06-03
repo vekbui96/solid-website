@@ -65,14 +65,27 @@ export const Home = () => {
                         <h2 class="hp-act-title">It started with the backend.</h2>
                         <p class="hp-act-body">
                             APIs, services, integrations, and the data systems that keep everything
-                            running. I learned to think in system design, scalability, and reliability —
-                            the disciplines that decide whether software survives contact with production.
+                            running. I went deep on system design, scalability, and reliability — the
+                            disciplines that decide whether software survives contact with production,
+                            not just a demo.
                         </p>
-                        <ul class="hp-beats">
-                            <li>System design</li>
-                            <li>Scalability</li>
-                            <li>Reliability</li>
-                            <li>Architecture</li>
+                        <ul class="hp-details">
+                            <li>
+                                <span class="hp-d-label">System design</span>
+                                <span class="hp-d-desc">Enterprise APIs and microservices in Java, Spring Boot, and Clojure.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Data &amp; persistence</span>
+                                <span class="hp-d-desc">Relational schema design, indexing, and query optimization for high-throughput processing.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Reliability at scale</span>
+                                <span class="hp-d-desc">Monitoring, alerting, and on-call ownership — kept production downtime under 1%.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Secure integrations</span>
+                                <span class="hp-d-desc">Queues, third-party APIs, and service-to-service auth with OAuth.</span>
+                            </li>
                         </ul>
                         <p class="hp-punch">Focused on building software that <strong>works</strong>.</p>
                     </div>
@@ -105,15 +118,27 @@ export const Home = () => {
                         <p class="hp-eyebrow hp-eyebrow-2">02 — Range</p>
                         <h2 class="hp-act-title">Then I owned the whole product.</h2>
                         <p class="hp-act-body">
-                            I expanded into frontend and product, working end-to-end across UI, testing,
-                            observability, and cloud. I stopped shipping endpoints and started shipping
-                            experiences.
+                            I expanded into frontend and product, owning features end-to-end across UI,
+                            testing, observability, and cloud. I stopped shipping endpoints and started
+                            shipping experiences people actually reach for.
                         </p>
-                        <ul class="hp-beats hp-beats-2">
-                            <li>Frontend &amp; UX</li>
-                            <li>Testing</li>
-                            <li>Observability</li>
-                            <li>Cloud</li>
+                        <ul class="hp-details">
+                            <li>
+                                <span class="hp-d-label">Frontend &amp; UX</span>
+                                <span class="hp-d-desc">Product UIs and micro-frontends in TypeScript and SolidJS, with reusable component systems.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Testing &amp; quality</span>
+                                <span class="hp-d-desc">Automated test suites and layered validation across client, BFF, and domain.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Observability</span>
+                                <span class="hp-d-desc">Splunk and New Relic dashboards, correlation tracing, and 504 root-cause investigations.</span>
+                            </li>
+                            <li>
+                                <span class="hp-d-label">Cloud delivery</span>
+                                <span class="hp-d-desc">Shipped end-to-end on AWS with CI/CD pipelines and production rollout planning.</span>
+                            </li>
                         </ul>
                         <p class="hp-punch">Focused on building software people <strong>enjoy using</strong>.</p>
                     </div>

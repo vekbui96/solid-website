@@ -46,6 +46,22 @@
     opacity: 0;
     transition: none;
 }
+.brand-spark {
+    margin-right: 5px;
+    display: inline-block;
+    background: linear-gradient(120deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: brand-twinkle 1.9s ease-in-out infinite;
+}
+@keyframes brand-twinkle {
+    0%, 100% { opacity: 0.65; transform: scale(0.9) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.18) rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .brand-spark { animation: none; }
+}
 
 /* adapts when sticky bar sits over a dark scene */
 .topbar-dark {
