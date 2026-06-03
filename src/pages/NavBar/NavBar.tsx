@@ -21,7 +21,8 @@ export const Navbar = () => {
 
     const go = (id: string) => {
         const r = root() as any;
-        r?.getElementById?.(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        r?.getElementById?.(id)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     };
 
     onMount(() => {
@@ -49,12 +50,13 @@ export const Navbar = () => {
     return (
         <>
             <style>{styles}</style>
-            <nav class="nav" ref={navEl}>
+            <nav class="nav" aria-label="Primary" ref={navEl}>
                 <For each={links}>
                     {(link) => (
                         <button
                             class="nav-link"
                             classList={{ active: ctx?.activeSection() === link.id }}
+                            aria-current={ctx?.activeSection() === link.id ? "true" : undefined}
                             onClick={() => go(link.id)}
                         >
                             {link.label}

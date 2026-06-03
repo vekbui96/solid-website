@@ -180,7 +180,7 @@ export const Home = () => {
                             <h3 class="hp-card-title">Enterprise Operations Copilot</h3>
                             <p class="hp-card-tag">Natural-language operations over fragmented enterprise data.</p>
                             <div class="hp-flow">
-                                <span>chat</span><i>→</i><span>orchestrator</span><i>→</i><span>RAG + tools</span><i>→</i><span>systems of record</span>
+                                <span>chat</span><i aria-hidden="true">→</i><span>orchestrator</span><i aria-hidden="true">→</i><span>RAG + tools</span><i aria-hidden="true">→</i><span>systems of record</span>
                             </div>
                             <dl class="hp-psa">
                                 <dt>Problem</dt><dd>Ops teams drown in fragmented systems and tribal knowledge.</dd>
@@ -194,7 +194,7 @@ export const Home = () => {
                             <h3 class="hp-card-title">AI Incident Commander</h3>
                             <p class="hp-card-tag">Detects, triages, and narrates incidents in real time.</p>
                             <div class="hp-flow">
-                                <span>alerts</span><i>→</i><span>reasoning loop</span><i>→</i><span>runbooks</span><i>→</i><span>comms</span>
+                                <span>alerts</span><i aria-hidden="true">→</i><span>reasoning loop</span><i aria-hidden="true">→</i><span>runbooks</span><i aria-hidden="true">→</i><span>comms</span>
                             </div>
                             <dl class="hp-psa">
                                 <dt>Problem</dt><dd>During incidents, engineers waste critical minutes correlating signals.</dd>
@@ -208,7 +208,7 @@ export const Home = () => {
                             <h3 class="hp-card-title">AI Codebase Onboarding Agent</h3>
                             <p class="hp-card-tag">Turns a repository into an interactive mentor.</p>
                             <div class="hp-flow">
-                                <span>repo index</span><i>→</i><span>graph + RAG</span><i>→</i><span>guided Q&amp;A</span>
+                                <span>repo index</span><i aria-hidden="true">→</i><span>graph + RAG</span><i aria-hidden="true">→</i><span>guided Q&amp;A</span>
                             </div>
                             <dl class="hp-psa">
                                 <dt>Problem</dt><dd>New engineers take weeks to get productive in large codebases.</dd>

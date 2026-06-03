@@ -5,7 +5,10 @@ import { useGlobalContext } from '../../context/GlobalContext';
 
 export const Header = () => {
     const ctx = useGlobalContext();
-    const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+    const toTop = () => {
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    };
 
     return (
         <>

@@ -40,6 +40,20 @@
     box-sizing: border-box;
 }
 
+/* visible keyboard focus (adapts to dark scenes) */
+.site a:focus-visible,
+.site button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+.hp-scene-dark a:focus-visible,
+.hp-scene-dark button:focus-visible,
+.topbar-dark a:focus-visible,
+.topbar-dark button:focus-visible {
+    outline-color: var(--d-accent);
+}
+
 .page-host {
     flex: 1;
     width: 100%;
