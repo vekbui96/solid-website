@@ -128,6 +128,13 @@ export const ProjectShowcase = () => {
                                         </div>
                                     </Show>
 
+                                    <Show when={(p as any).takeaway}>
+                                        <div class="pj-takeaway">
+                                            <span class="pj-label">Why it matters</span>
+                                            <p>{(p as any).takeaway}</p>
+                                        </div>
+                                    </Show>
+
                                     <div class="pj-skills">
                                         <For each={p.skills}>{(s) => <span class="pj-skill">{s}</span>}</For>
                                     </div>

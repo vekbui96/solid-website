@@ -177,6 +177,17 @@
 .pj-q::after { content: "\201D"; color: var(--d-accent); }
 .pj-a { display: block; font-size: 13px; color: var(--d-muted); line-height: 1.55; }
 
+/* takeaway callout */
+.pj-takeaway {
+    background: rgba(34, 211, 238, 0.06);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+}
+.pj-takeaway .pj-label { margin-bottom: 6px; }
+.pj-takeaway p { margin: 0; color: var(--d-text); font-size: 15px; line-height: 1.65; }
+
 .pj-skills { display: flex; flex-wrap: wrap; gap: 8px; }
 .pj-skill {
     font-size: 12px;

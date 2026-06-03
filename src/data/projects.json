@@ -44,6 +44,33 @@
     "skills": ["AI systems", "RAG", "Code analysis", "Developer tooling", "System design"]
   },
   {
+    "id": "sdd-harness",
+    "title": "Spec-Driven Development Harness",
+    "tagline": "A company harness that scales AI-assisted development across an organization.",
+    "categories": ["ai", "backend"],
+    "flow": ["open-source SDD framework", "company harness", "standards · workflows · templates", "engineering teams"],
+    "problem": "As AI-assisted development matured, adopting open-source agent and spec frameworks directly clashed with company-specific requirements, internal engineering standards, governance, long-term maintainability, and staying aligned with upstream improvements.",
+    "highlights": [
+      "Designed a harness on top of the open-source spec-driven development ecosystem instead of forking and heavily modifying it",
+      "Preserves compatibility with upstream updates",
+      "Extends workflows with company-specific context and organizational standards",
+      "Provides reusable agent workflows and templates",
+      "Creates a consistent developer experience across teams"
+    ],
+    "features": [
+      { "name": "Consistency", "desc": "Teams follow the same specification-driven workflow." },
+      { "name": "Maintainability", "desc": "Adopt upstream improvements without rebuilding customizations." },
+      { "name": "AI Readiness", "desc": "Agents have company-specific context and engineering standards." },
+      { "name": "Scalability", "desc": "New teams onboard faster on established workflows." }
+    ],
+    "takeaway": "Rather than focusing solely on using AI tools, I focused on creating the systems, standards, and developer experience that let AI-assisted development scale across an organization — adoption, architecture, governance, and scale, not just prompting an LLM.",
+    "skills": [
+      "AI engineering", "Agent workflows", "Context engineering", "Specification design",
+      "Platform engineering", "Developer experience", "Internal tooling", "Workflow design",
+      "Systems thinking", "Extensibility", "Governance", "Long-term maintainability"
+    ]
+  },
+  {
     "id": "incident-commander",
     "title": "AI Incident Commander",
     "tagline": "Detects, triages, and narrates incidents in real time.",
