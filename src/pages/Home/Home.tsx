@@ -1,5 +1,9 @@
+import { reveal } from "../../utils/reveal";
 // @ts-ignore
 import styles from "./Home.scss?inline"
+
+// keep the directive in scope for Solid's `use:` compiler transform
+false && reveal;
 
 export const Home = () => {
     let storyRef: HTMLElement | undefined;
@@ -15,7 +19,7 @@ export const Home = () => {
             {/* ───────────────────────── HERO ───────────────────────── */}
             <section class="hp-hero">
                 <div class="container hp-hero-inner">
-                    <div class="hp-hero-copy">
+                    <div class="hp-hero-copy" use:reveal>
                         <p class="hp-eyebrow">Full-Stack Engineer → AI Systems</p>
                         <h1 class="hp-hero-title">I build software systems that think.</h1>
                         <p class="hp-hero-sub">
@@ -31,7 +35,7 @@ export const Home = () => {
                             </button>
                         </div>
                     </div>
-                    <div class="hp-hero-visual">
+                    <div class="hp-hero-visual" use:reveal={{ delay: 150 }}>
                         <svg class="hp-diagram" viewBox="0 0 360 80" role="img" aria-label="Client connected to API connected to database">
                             <line class="edge" x1="100" y1="40" x2="135" y2="40" />
                             <line class="edge" x1="225" y1="40" x2="260" y2="40" />
@@ -49,7 +53,7 @@ export const Home = () => {
             {/* ──────────────────── ACT I — BACKEND ──────────────────── */}
             <section class="hp-act" ref={storyRef} id="story">
                 <div class="container hp-act-inner">
-                    <div class="hp-act-copy">
+                    <div class="hp-act-copy" use:reveal>
                         <p class="hp-eyebrow">01 — Foundations</p>
                         <h2 class="hp-act-title">It started with the backend.</h2>
                         <p class="hp-act-body">
@@ -65,7 +69,7 @@ export const Home = () => {
                         </ul>
                         <p class="hp-punch">Focused on building software that <strong>works</strong>.</p>
                     </div>
-                    <div class="hp-act-visual">
+                    <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram" viewBox="0 0 380 220" role="img" aria-label="Backend topology: client to API to auth, queue, and Postgres">
                             <line class="edge" x1="190" y1="42" x2="190" y2="86" />
                             <line class="edge" x1="170" y1="124" x2="80" y2="176" />
@@ -90,7 +94,7 @@ export const Home = () => {
             {/* ─────────────────── ACT II — FULL-STACK ─────────────────── */}
             <section class="hp-act hp-act-alt">
                 <div class="container hp-act-inner hp-reverse">
-                    <div class="hp-act-copy">
+                    <div class="hp-act-copy" use:reveal>
                         <p class="hp-eyebrow hp-eyebrow-2">02 — Range</p>
                         <h2 class="hp-act-title">Then I owned the whole product.</h2>
                         <p class="hp-act-body">
@@ -106,7 +110,7 @@ export const Home = () => {
                         </ul>
                         <p class="hp-punch">Focused on building software people <strong>enjoy using</strong>.</p>
                     </div>
-                    <div class="hp-act-visual">
+                    <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram hp-diagram-2" viewBox="0 0 400 240" role="img" aria-label="Full system: web and mobile clients, API, database, CI/CD, and observability">
                             <line class="edge" x1="90" y1="44" x2="150" y2="92" />
                             <line class="edge" x1="220" y1="44" x2="200" y2="92" />
@@ -134,7 +138,7 @@ export const Home = () => {
             {/* ──────────────────── ACT III — AI (dark) ──────────────────── */}
             <section class="hp-act hp-scene-dark hp-act-ai">
                 <div class="container hp-act-inner">
-                    <div class="hp-act-copy">
+                    <div class="hp-act-copy" use:reveal>
                         <p class="hp-eyebrow hp-eyebrow-ai">03 — Intelligence</p>
                         <h2 class="hp-act-title">Now I build systems that think alongside people.</h2>
                         <p class="hp-act-body">
@@ -147,7 +151,7 @@ export const Home = () => {
                             effectively</strong>.
                         </p>
                     </div>
-                    <div class="hp-act-visual">
+                    <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram hp-diagram-ai" viewBox="0 0 420 220" role="img" aria-label="An AI agent layer reasoning above and acting on the engineered system">
                             <rect class="n ai-layer" x="40" y="10" width="340" height="50" rx="12" />
                             <text class="lbl ai-lbl" x="210" y="40" text-anchor="middle">ai / agents · reason · retrieve · act</text>
@@ -170,7 +174,7 @@ export const Home = () => {
                     <h2 class="hp-section-title">What I'm building.</h2>
 
                     <div class="hp-cards">
-                        <article class="hp-card">
+                        <article class="hp-card" use:reveal>
                             <span class="hp-card-num">01</span>
                             <h3 class="hp-card-title">Enterprise Operations Copilot</h3>
                             <p class="hp-card-tag">Natural-language operations over fragmented enterprise data.</p>
@@ -184,7 +188,7 @@ export const Home = () => {
                             </dl>
                         </article>
 
-                        <article class="hp-card">
+                        <article class="hp-card" use:reveal={{ delay: 90 }}>
                             <span class="hp-card-num">02</span>
                             <h3 class="hp-card-title">AI Incident Commander</h3>
                             <p class="hp-card-tag">Detects, triages, and narrates incidents in real time.</p>
@@ -198,7 +202,7 @@ export const Home = () => {
                             </dl>
                         </article>
 
-                        <article class="hp-card">
+                        <article class="hp-card" use:reveal={{ delay: 180 }}>
                             <span class="hp-card-num">03</span>
                             <h3 class="hp-card-title">AI Codebase Onboarding Agent</h3>
                             <p class="hp-card-tag">Turns a repository into an interactive mentor.</p>
@@ -232,7 +236,7 @@ export const Home = () => {
 
             {/* ──────────────────── CLOSE / CTA ──────────────────── */}
             <section class="hp-close">
-                <div class="container hp-close-inner">
+                <div class="container hp-close-inner" use:reveal>
                     <h2 class="hp-close-title">Let's build intelligent systems together.</h2>
                     <p class="hp-close-sub">
                         I help teams turn deep engineering into AI that delivers measurable outcomes.
