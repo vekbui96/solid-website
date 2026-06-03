@@ -1,0 +1,57 @@
+.ui-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(8, 11, 18, 0.55);
+  backdrop-filter: blur(2px);
+  animation: ui-dialog-fade 0.16s ease;
+}
+
+.ui-dialog {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+  animation: ui-dialog-pop 0.18s ease;
+}
+
+.ui-dialog:focus {
+  outline: none;
+}
+
+.ui-dialog__title {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+@keyframes ui-dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-dialog-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dialog__backdrop,
+  .ui-dialog {
+    animation: none;
+  }
+}

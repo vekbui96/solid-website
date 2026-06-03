@@ -1,0 +1,28 @@
+.ui-skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1100;
+  transform: translateY(-120%);
+  padding: 0.6rem 1rem;
+  background: var(--accent);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+  transition: transform 0.16s ease;
+}
+
+.ui-skip-link:focus,
+.ui-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skip-link {
+    transition: none;
+  }
+}
