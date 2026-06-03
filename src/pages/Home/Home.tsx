@@ -247,6 +247,7 @@ export const Home = () => {
                     </p>
                     <div class="hp-cta-row hp-cta-center">
                         <a class="hp-btn hp-btn-primary" href="mailto:tommy.bui1428@gmail.com">Get in touch →</a>
+                        <a class="hp-btn hp-btn-ghost" href="./Ve-Bui-Resume.pdf" target="_blank" rel="noopener">Download résumé ↓</a>
                         <a class="hp-btn hp-btn-ghost" href="https://linkedin.com/in/vekbui96" target="_blank" rel="noopener">LinkedIn</a>
                     </div>
                 </div>
@@ -258,6 +259,7 @@ export const Home = () => {
                     <span>Ve Bui — Dallas, TX</span>
                     <span class="hp-footer-links">
                         <a href="mailto:tommy.bui1428@gmail.com">Email</a>
+                        <a href="./Ve-Bui-Resume.pdf" target="_blank" rel="noopener">Résumé</a>
                         <a href="https://github.com/vekbui96" target="_blank" rel="noopener">GitHub</a>
                         <a href="https://linkedin.com/in/vekbui96" target="_blank" rel="noopener">LinkedIn</a>
                     </span>
