@@ -1,0 +1,161 @@
+/* filter pills */
+.pj-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+}
+.pj-filter {
+    appearance: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--d-muted);
+    background: transparent;
+    border: 1px solid var(--d-border);
+    border-radius: 999px;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.pj-filter:hover { color: var(--d-text); border-color: #33405a; }
+.pj-filter.active {
+    color: #0b0e14;
+    background: var(--d-accent);
+    border-color: var(--d-accent);
+}
+
+/* grid */
+.pj-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.pj-card {
+    background: var(--d-surface);
+    border: 1px solid var(--d-border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.pj-card:hover { border-color: #33405a; }
+.pj-card.featured { border-color: rgba(34, 211, 238, 0.4); }
+.pj-card.open {
+    grid-column: 1 / -1;
+    border-color: var(--d-accent);
+}
+
+.pj-head {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 22px 24px;
+    font-family: inherit;
+}
+.pj-head-text { display: flex; flex-direction: column; }
+
+.pj-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.pj-cat {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--d-muted);
+    border: 1px solid var(--d-border);
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+.pj-cat-star { color: var(--d-accent); border-color: rgba(34, 211, 238, 0.4); }
+
+.pj-title { font-size: 19px; font-weight: 700; color: var(--d-text); line-height: 1.25; }
+.pj-tag { font-size: 14px; color: var(--d-muted); margin-top: 4px; }
+
+.pj-toggle {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--d-accent);
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--d-border);
+    border-radius: 8px;
+}
+
+/* expanded body */
+.pj-body {
+    padding: 0 24px 24px;
+    animation: pj-expand 0.35s ease;
+}
+@keyframes pj-expand {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.pj-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 0 18px;
+    border-top: 1px solid var(--d-border);
+    margin-bottom: 4px;
+}
+.pj-flow span {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--d-text);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--d-border);
+    border-radius: 8px;
+    padding: 5px 10px;
+}
+.pj-flow i { color: var(--d-accent); font-style: normal; }
+
+.pj-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--d-accent);
+    margin-bottom: 6px;
+}
+.pj-problem { color: var(--d-muted); font-size: 15px; line-height: 1.65; margin: 0 0 18px; }
+.pj-problem .pj-label { margin-bottom: 6px; }
+
+.pj-highlights ul {
+    margin: 0 0 18px;
+    padding-left: 18px;
+    color: var(--d-text);
+}
+.pj-highlights li { font-size: 15px; line-height: 1.7; }
+
+.pj-skills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pj-skill {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--d-text);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--d-border);
+    border-radius: 999px;
+    padding: 4px 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pj-body { animation: none; }
+}
+
+@media screen and (max-width: 720px) {
+    .pj-grid { grid-template-columns: 1fr; }
+    .pj-card.open { grid-column: auto; }
+}

@@ -1,4 +1,5 @@
 import { ExperienceList } from "../../components/Experience/Experience";
+import { ProjectShowcase } from "../../components/Projects/ProjectShowcase";
 import { reveal } from "../../utils/reveal";
 // @ts-ignore
 import styles from "./Home.scss?inline"
@@ -171,52 +172,10 @@ export const Home = () => {
             {/* ──────────────────── PROJECTS (dark) ──────────────────── */}
             <section class="hp-projects hp-scene-dark" ref={projectsRef} id="projects" data-nav-dark>
                 <div class="container">
-                    <p class="hp-eyebrow hp-eyebrow-ai">Selected systems</p>
+                    <p class="hp-eyebrow hp-eyebrow-ai" use:reveal>Selected systems</p>
                     <h2 class="hp-section-title">What I'm building.</h2>
 
-                    <div class="hp-cards">
-                        <article class="hp-card" use:reveal>
-                            <span class="hp-card-num">01</span>
-                            <h3 class="hp-card-title">Enterprise Operations Copilot</h3>
-                            <p class="hp-card-tag">Natural-language operations over fragmented enterprise data.</p>
-                            <div class="hp-flow">
-                                <span>chat</span><i aria-hidden="true">→</i><span>orchestrator</span><i aria-hidden="true">→</i><span>RAG + tools</span><i aria-hidden="true">→</i><span>systems of record</span>
-                            </div>
-                            <dl class="hp-psa">
-                                <dt>Problem</dt><dd>Ops teams drown in fragmented systems and tribal knowledge.</dd>
-                                <dt>System</dt><dd>An agentic copilot that plans across tools, retrieves grounded context, and executes guarded actions.</dd>
-                                <dt>Impact</dt><dd>Faster time-to-answer and fewer escalations.</dd>
-                            </dl>
-                        </article>
-
-                        <article class="hp-card" use:reveal={{ delay: 90 }}>
-                            <span class="hp-card-num">02</span>
-                            <h3 class="hp-card-title">AI Incident Commander</h3>
-                            <p class="hp-card-tag">Detects, triages, and narrates incidents in real time.</p>
-                            <div class="hp-flow">
-                                <span>alerts</span><i aria-hidden="true">→</i><span>reasoning loop</span><i aria-hidden="true">→</i><span>runbooks</span><i aria-hidden="true">→</i><span>comms</span>
-                            </div>
-                            <dl class="hp-psa">
-                                <dt>Problem</dt><dd>During incidents, engineers waste critical minutes correlating signals.</dd>
-                                <dt>System</dt><dd>An agent that ingests alerts, reasons over telemetry and runbooks, drafts the timeline, and coordinates comms.</dd>
-                                <dt>Impact</dt><dd>Lower MTTR and cleaner postmortems.</dd>
-                            </dl>
-                        </article>
-
-                        <article class="hp-card" use:reveal={{ delay: 180 }}>
-                            <span class="hp-card-num">03</span>
-                            <h3 class="hp-card-title">AI Codebase Onboarding Agent</h3>
-                            <p class="hp-card-tag">Turns a repository into an interactive mentor.</p>
-                            <div class="hp-flow">
-                                <span>repo index</span><i aria-hidden="true">→</i><span>graph + RAG</span><i aria-hidden="true">→</i><span>guided Q&amp;A</span>
-                            </div>
-                            <dl class="hp-psa">
-                                <dt>Problem</dt><dd>New engineers take weeks to get productive in large codebases.</dd>
-                                <dt>System</dt><dd>Indexes the repo into a graph and vector store, then serves a conversational mentor that answers where, why, and how — with citations.</dd>
-                                <dt>Impact</dt><dd>Faster ramp-up and fewer interrupt questions.</dd>
-                            </dl>
-                        </article>
-                    </div>
+                    <ProjectShowcase />
                 </div>
             </section>
 

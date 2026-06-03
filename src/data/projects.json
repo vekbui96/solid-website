@@ -1,0 +1,111 @@
+[
+  {
+    "id": "ops-copilot",
+    "title": "Enterprise Operations Copilot",
+    "tagline": "Natural-language operations over fragmented enterprise data.",
+    "categories": ["ai"],
+    "featured": true,
+    "flow": ["chat", "orchestrator", "RAG + tools", "human approval", "systems of record"],
+    "problem": "Ops teams drown in fragmented systems and tribal knowledge, losing time hunting for answers across tools.",
+    "highlights": [
+      "Retrieval-augmented generation (RAG) over enterprise knowledge",
+      "Agentic planning that reasons across multiple tools",
+      "Workflow automation for repetitive operational tasks",
+      "Human-in-the-loop approvals before consequential actions",
+      "Guarded execution against systems of record"
+    ],
+    "skills": ["AI systems", "RAG", "Agent orchestration", "Workflow automation"]
+  },
+  {
+    "id": "incident-commander",
+    "title": "AI Incident Commander",
+    "tagline": "Detects, triages, and narrates incidents in real time.",
+    "categories": ["ai"],
+    "flow": ["alerts", "reasoning loop", "runbooks", "comms"],
+    "problem": "During incidents, engineers waste critical minutes correlating signals across logs and dashboards.",
+    "highlights": [
+      "Reads logs and telemetry across systems",
+      "Reconstructs the incident timeline automatically",
+      "Identifies likely root causes",
+      "Generates postmortem drafts and coordinates comms"
+    ],
+    "skills": ["AI systems", "Observability", "Agents", "Root-cause analysis"]
+  },
+  {
+    "id": "onboarding-agent",
+    "title": "AI Codebase Onboarding Agent",
+    "tagline": "Turns a repository into an interactive mentor.",
+    "categories": ["ai"],
+    "flow": ["repo index", "graph + RAG", "guided Q&A"],
+    "problem": "New engineers take weeks to get productive in large, unfamiliar codebases.",
+    "highlights": [
+      "Upload a repository and index it into a graph + vector store",
+      "Architecture explanations on demand",
+      "Service maps and data-flow diagrams",
+      "Technical-debt analysis with citations"
+    ],
+    "skills": ["AI systems", "Developer tooling", "RAG", "Code analysis"]
+  },
+  {
+    "id": "campaign-builder",
+    "title": "Campaign Builder Platform",
+    "tagline": "A multi-step platform for creating and managing marketing campaigns.",
+    "categories": ["frontend", "backend"],
+    "flow": ["SolidJS MFE", "Spring Boot BFF", "validation", "queue", "systems of record"],
+    "problem": "Marketing teams needed to build and manage complex, multi-step campaigns without pulling in engineering for every change.",
+    "highlights": [
+      "Multi-step campaign builder shipped as a SolidJS micro-frontend",
+      "Spring Boot backend-for-frontend orchestrating downstream services",
+      "Layered validation architecture across client, BFF, and domain",
+      "Queue management for long-running operations",
+      "Caching strategy for high-read configuration data",
+      "Third-party API integration",
+      "ADA / WCAG-compliant UI",
+      "Observability with dashboards and alerting"
+    ],
+    "skills": ["Frontend architecture", "Backend architecture", "State management", "System design"]
+  },
+  {
+    "id": "image-pipeline",
+    "title": "Secure Image Processing Pipeline",
+    "tagline": "A secure upload workflow that sanitizes images before processing.",
+    "categories": ["backend"],
+    "flow": ["upload", "validation", "CDR sanitize", "processing"],
+    "problem": "User-uploaded images are a malware vector and must be neutralized before any downstream processing touches them.",
+    "highlights": [
+      "Content Disarm & Reconstruction (CDR) integration to neutralize malicious payloads",
+      "Multi-stage validation (type, size, content)",
+      "Hardened backend processing pipeline",
+      "Robust error handling and quarantine paths"
+    ],
+    "skills": ["Security engineering", "Backend engineering", "Enterprise systems"]
+  },
+  {
+    "id": "save-queue",
+    "title": "Debounced Save Queue",
+    "tagline": "Lossless autosave under heavy, racing user edits.",
+    "categories": ["frontend"],
+    "flow": ["user typing", "queue", "debounce", "save"],
+    "problem": "Rapid user edits generated excessive, racing save requests that overwhelmed the backend and risked lost work.",
+    "highlights": [
+      "Debounced memento-based save queue",
+      "Last-write-wins conflict resolution",
+      "Eliminated redundant network calls",
+      "Smooth, lossless autosave experience"
+    ],
+    "skills": ["Concurrency", "State management", "Performance optimization", "Systems thinking"]
+  },
+  {
+    "id": "dev-portal",
+    "title": "Developer Resource Portal",
+    "tagline": "A centralized hub for engineering tools, repos, and resources.",
+    "categories": ["frontend"],
+    "problem": "Engineers wasted time hunting for tools, repositories, and documentation scattered across systems.",
+    "highlights": [
+      "Centralized access to tools, repositories, and engineering resources",
+      "Information architecture tuned for fast retrieval",
+      "UX focused on developer productivity"
+    ],
+    "skills": ["UX design", "Information architecture", "Frontend"]
+  }
+]
