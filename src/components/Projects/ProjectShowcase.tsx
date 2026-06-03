@@ -168,6 +168,24 @@ export const ProjectShowcase = () => {
                                         </div>
                                     </Show>
 
+                                    <Show when={(p as any).links}>
+                                        <div class="pj-links">
+                                            <For each={(p as any).links}>
+                                                {(lnk: any) => (
+                                                    <a
+                                                        class="pj-link"
+                                                        href={lnk.href}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {lnk.label} ↗
+                                                    </a>
+                                                )}
+                                            </For>
+                                        </div>
+                                    </Show>
+
                                     <div class="pj-skills">
                                         <For each={p.skills}>{(s) => <span class="pj-skill">{s}</span>}</For>
                                     </div>

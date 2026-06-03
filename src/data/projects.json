@@ -645,32 +645,44 @@
   },
   {
     "id": "component-library",
-    "title": "Component Library & Storybook System",
-    "tagline": "Reusable UI components and Storybook docs for consistency and productivity.",
+    "title": "Accessible Solid Component Library",
+    "tagline": "A token-driven, accessibility-first component library — documented live in Storybook.",
     "categories": [
       "frontend"
     ],
     "highlights": [
-      "Shared component architecture",
-      "Interactive Storybook examples",
-      "Accessibility testing",
-      "Design standardization",
-      "Components: dropdowns, tabs, progress indicators, modals, accordions, form controls"
+      "Built in SolidJS + TypeScript, themed entirely by CSS custom-property design tokens (one source of truth, light + dark scenes)",
+      "Primitives: Button, Tag, Card, Dialog (focus-trap modal), plus VisuallyHidden and SkipLink helpers",
+      "Documented in Storybook with the axe-core a11y addon running on every story — verified zero violations",
+      "Dogfooded: this very portfolio is built on it"
+    ],
+    "challenges": [
+      "Accessible modal: focus trap, Escape-to-close, focus restoration",
+      "Sharing design tokens between the shadow-DOM site and Storybook's normal DOM",
+      "Serving Storybook from a /storybook subpath on GitHub Pages"
     ],
     "skills": [
       "Design systems",
+      "Accessibility (WCAG / axe)",
       "Frontend scalability",
       "Team enablement"
     ],
     "curated": true,
-    "problem": "Teams kept rebuilding the same UI primitives inconsistently, slowing delivery and fragmenting the experience.",
+    "featured": true,
+    "problem": "Teams kept rebuilding the same UI primitives inconsistently — slowing delivery, fragmenting the experience, and letting accessibility regress.",
     "flow": [
       "design tokens",
-      "components",
-      "Storybook",
-      "teams"
+      "accessible primitives",
+      "Storybook + axe",
+      "shipped product"
     ],
-    "takeaway": "A shared component system is leverage: it makes every future feature faster, more consistent, and more accessible by default."
+    "takeaway": "A shared, accessible component system is leverage: every future feature ships faster, more consistent, and accessible by default — and Storybook makes the contract visible to the whole team.",
+    "links": [
+      {
+        "label": "Browse the live Storybook",
+        "href": "./storybook/"
+      }
+    ]
   },
   {
     "id": "image-upload",
