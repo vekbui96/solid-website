@@ -11,10 +11,13 @@ A personal portfolio website for Ve Bui (Software Engineer), built with **SolidJ
 Package manager is **yarn** (`yarn.lock` is committed).
 
 - `yarn dev` — start the Vite dev server (`--host`, exposed on the network)
-- `yarn build` — production build to `dist/`
-- `yarn deploy` — publish `dist/` to the `gh-pages` branch via `gh-pages` (run `yarn build` first). The live site is served from `origin/gh-pages`; don't edit that branch by hand.
+- `yarn build` — production build of the site to `dist/`
+- `yarn storybook` — run Storybook (Solid renderer) on port 6006 with the a11y addon
+- `yarn build-storybook` — build Storybook static output (standalone)
+- `yarn build:all` — build the site to `dist/` **and** Storybook into `dist/storybook/`
+- `yarn deploy` — runs `build:all`, then publishes `dist/` to the `gh-pages` branch. The site lives at `/`, Storybook at `/storybook/`. The live site is served from `origin/gh-pages`; don't edit that branch by hand.
 
-There is no test runner, linter, or formatter configured.
+There is no test runner, linter, or formatter configured (a11y is checked via Storybook's axe addon).
 
 ## Architecture
 
@@ -22,6 +25,7 @@ There is no test runner, linter, or formatter configured.
 - **Three.js background:** `src/pages/ThreeBackground/ThreeBackground.jsx` sets up the scene (wireframe sphere + particle field) inside `onMount`, with a `resize` listener and `onCleanup` disposal. This is plain imperative Three.js, not reactive Solid.
 - **Global state:** `src/context/GlobalContext.tsx` exposes signals via `useGlobalContext()`. The `page` signal (`setPage`) drives which section shows; `NavBar.tsx` calls `setPage("home" | "about" | "projects")`. Note: the content area in `index.tsx` currently always renders `<Home/>` — page switching is wired in context but not yet branched in the layout.
 - **Pages** live in `src/pages/<Name>/` (Header, Home, HeroArea, NavBar, About, SocialMedia, ThreeBackground). **Reusable pieces** live in `src/components/`. **Static content** is JSON in `src/data/` (`navbar.json`, `about.json`).
+- **Component library:** `src/ui/<Name>/` holds the accessible primitive library (Button, Tag, Card, Dialog, plus VisuallyHidden/SkipLink helpers), each with a sibling `.scss` and `.stories.tsx`, re-exported from `src/ui/index.ts`. Design tokens live in `src/ui/theme/_tokens.scss` as `@mixin design-tokens` / `dark-tokens` — the single source of truth consumed by both `.site` (`src/index.scss`) and Storybook (`.ui-theme` in `theme.scss`). Storybook config is in `.storybook/`; the preview wraps stories in the token theme with a light/dark toolbar toggle. Add a story for every new primitive and keep the axe a11y panel clean.
 
 ## Conventions
 
