@@ -193,7 +193,18 @@ section[id] { scroll-margin-top: 84px; }
 .hp-act-visual { display: flex; flex-direction: column; align-items: center; }
 
 /* ============ dark scenes ============ */
-.hp-scene-dark { background: var(--d-bg); color: var(--d-text); }
+/* remap the theme tokens to dark so any tagged section themes itself */
+.hp-scene-dark {
+    --bg: var(--d-bg);
+    --surface: var(--d-surface);
+    --text: var(--d-text);
+    --muted: var(--d-muted);
+    --border: var(--d-border);
+    --accent: var(--d-accent);
+    --accent-soft: rgba(34, 211, 238, 0.12);
+    background: var(--d-bg);
+    color: var(--d-text);
+}
 .hp-scene-dark .hp-act-body { color: var(--d-muted); }
 .hp-scene-dark .hp-punch strong { color: var(--d-accent); }
 .hp-scene-dark .hp-diagram .n { fill: var(--d-surface); stroke: var(--d-border); }

@@ -215,7 +215,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── EXPERIENCE ──────────────────── */}
-            <section class="hp-exp" id="experience">
+            <section class="hp-exp hp-scene-dark" id="experience" data-nav-dark>
                 <div class="container">
                     <p class="hp-eyebrow" use:reveal>Experience</p>
                     <h2 class="hp-section-title">Where I've delivered.</h2>
@@ -224,7 +224,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── CAPABILITIES ──────────────────── */}
-            <section class="hp-caps" id="systems">
+            <section class="hp-caps hp-scene-dark" id="systems" data-nav-dark>
                 <div class="container">
                     <p class="hp-eyebrow">Capabilities</p>
                     <h2 class="hp-section-title">Systems I can own end-to-end.</h2>
@@ -239,7 +239,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── CLOSE / CTA ──────────────────── */}
-            <section class="hp-close" id="contact">
+            <section class="hp-close hp-scene-dark" id="contact" data-nav-dark>
                 <div class="container hp-close-inner" use:reveal>
                     <h2 class="hp-close-title">Let's build intelligent systems together.</h2>
                     <p class="hp-close-sub">
@@ -253,7 +253,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── FOOTER ──────────────────── */}
-            <footer class="hp-footer">
+            <footer class="hp-footer hp-scene-dark">
                 <div class="container hp-footer-inner">
                     <span>Ve Bui — Dallas, TX</span>
                     <span class="hp-footer-links">
