@@ -1,0 +1,54 @@
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ui-card__header,
+.ui-card__body,
+.ui-card__footer {
+  padding: 1.1rem 1.25rem;
+}
+
+.ui-card__header {
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.ui-card__footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* collapse empty padding doubling when only a body is present */
+.ui-card__body:only-child {
+  padding: 1.25rem;
+}
+
+.ui-card--interactive {
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.ui-card--interactive:hover {
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+.ui-card--interactive:focus-within {
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-card--interactive {
+    transition: none;
+  }
+  .ui-card--interactive:hover {
+    transform: none;
+  }
+}
