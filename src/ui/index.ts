@@ -17,4 +17,7 @@ export type { VisuallyHiddenProps } from './VisuallyHidden/VisuallyHidden';
 export { SkipLink } from './SkipLink/SkipLink';
 export type { SkipLinkProps } from './SkipLink/SkipLink';
 
+export { ReasoningTrace } from './ReasoningTrace/ReasoningTrace';
+export type { ReasoningTraceProps, ReasoningStep, ReasoningStatus } from './ReasoningTrace/ReasoningTrace';
+
 export { themeCss, THEME_CLASS, THEME_DARK_CLASS } from './theme';
