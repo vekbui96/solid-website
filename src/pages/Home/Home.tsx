@@ -99,7 +99,7 @@ export const Home = () => {
             </section>
 
             {/* ─────────────────── ACT II — FULL-STACK ─────────────────── */}
-            <section class="hp-act hp-act-alt">
+            <section class="hp-act hp-act-alt" id="range">
                 <div class="container hp-act-inner hp-reverse">
                     <div class="hp-act-copy" use:reveal>
                         <p class="hp-eyebrow hp-eyebrow-2">02 — Range</p>

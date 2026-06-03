@@ -39,7 +39,12 @@
     font-size: 13px;
     font-weight: 400;
     color: var(--muted);
-    transition: color 0.3s ease;
+    transition: color 0.3s ease, opacity 0.25s ease;
+}
+/* applied for one frame on change so the new title fades in */
+.brand-title-fade {
+    opacity: 0;
+    transition: none;
 }
 
 /* adapts when sticky bar sits over a dark scene */

@@ -12,7 +12,7 @@ const links = [
 ] as const;
 
 // sections tracked by the scroll-spy (includes ones without a nav link)
-const tracked = ["hero", "story", "ai", "projects", "fit", "experience", "systems", "contact"];
+const tracked = ["hero", "story", "range", "ai", "projects", "fit", "experience", "systems", "contact"];
 
 export const Navbar = () => {
     const ctx = useGlobalContext();
