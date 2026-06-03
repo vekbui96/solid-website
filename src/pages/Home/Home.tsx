@@ -1,3 +1,4 @@
+import { ExperienceList } from "../../components/Experience/Experience";
 import { reveal } from "../../utils/reveal";
 // @ts-ignore
 import styles from "./Home.scss?inline"
@@ -17,7 +18,7 @@ export const Home = () => {
             <style>{styles}</style>
 
             {/* ───────────────────────── HERO ───────────────────────── */}
-            <section class="hp-hero">
+            <section class="hp-hero" id="hero">
                 <div class="container hp-hero-inner">
                     <div class="hp-hero-copy" use:reveal>
                         <p class="hp-eyebrow">Full-Stack Engineer → AI Systems</p>
@@ -136,7 +137,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── ACT III — AI (dark) ──────────────────── */}
-            <section class="hp-act hp-scene-dark hp-act-ai">
+            <section class="hp-act hp-scene-dark hp-act-ai" id="ai" data-nav-dark>
                 <div class="container hp-act-inner">
                     <div class="hp-act-copy" use:reveal>
                         <p class="hp-eyebrow hp-eyebrow-ai">03 — Intelligence</p>
@@ -168,7 +169,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── PROJECTS (dark) ──────────────────── */}
-            <section class="hp-projects hp-scene-dark" ref={projectsRef} id="projects">
+            <section class="hp-projects hp-scene-dark" ref={projectsRef} id="projects" data-nav-dark>
                 <div class="container">
                     <p class="hp-eyebrow hp-eyebrow-ai">Selected systems</p>
                     <h2 class="hp-section-title">What I'm building.</h2>
@@ -219,8 +220,17 @@ export const Home = () => {
                 </div>
             </section>
 
+            {/* ──────────────────── EXPERIENCE ──────────────────── */}
+            <section class="hp-exp" id="experience">
+                <div class="container">
+                    <p class="hp-eyebrow" use:reveal>Experience</p>
+                    <h2 class="hp-section-title">Where I've delivered.</h2>
+                    <ExperienceList />
+                </div>
+            </section>
+
             {/* ──────────────────── CAPABILITIES ──────────────────── */}
-            <section class="hp-caps">
+            <section class="hp-caps" id="systems">
                 <div class="container">
                     <p class="hp-eyebrow">Capabilities</p>
                     <h2 class="hp-section-title">Systems I can own end-to-end.</h2>
@@ -235,7 +245,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── CLOSE / CTA ──────────────────── */}
-            <section class="hp-close">
+            <section class="hp-close" id="contact">
                 <div class="container hp-close-inner" use:reveal>
                     <h2 class="hp-close-title">Let's build intelligent systems together.</h2>
                     <p class="hp-close-sub">

@@ -1,19 +1,15 @@
-import { ParentProps, createContext, createSignal, useContext} from "solid-js"
+import { ParentProps, createContext, createSignal, useContext } from "solid-js"
 
-interface IGlobalContextProps {
-    maybe?: number;
-}
-
-const globalContext = (props: ParentProps<IGlobalContextProps>) => {
-    const [exampleContext, setExampleContext] = createSignal('response');
-    const [page, setPage] = createSignal<"home" | "experience" | "about" | "projects">("home");
-    return {exampleContext,setExampleContext, page, setPage}
+const globalContext = () => {
+    const [activeSection, setActiveSection] = createSignal("hero");
+    const [onDark, setOnDark] = createSignal(false);
+    return { activeSection, setActiveSection, onDark, setOnDark };
 }
 
 const GlobalContext = createContext<ReturnType<typeof globalContext>>();
 
-export const GlobalContextProvider = (props: ParentProps<IGlobalContextProps>) => {
-    const value = globalContext(props);
+export const GlobalContextProvider = (props: ParentProps) => {
+    const value = globalContext();
     return <GlobalContext.Provider value={value}>{props.children}</GlobalContext.Provider>
 }
 
