@@ -261,6 +261,7 @@ export const Home = () => {
                         <a href="mailto:tommy.bui1428@gmail.com">Email</a>
                         <a href="./Ve-Bui-Resume.pdf" target="_blank" rel="noopener">Résumé</a>
                         <a href="https://github.com/vekbui96" target="_blank" rel="noopener">GitHub</a>
+                        <a href="./storybook/" target="_blank" rel="noopener">Storybook</a>
                         <a href="https://linkedin.com/in/vekbui96" target="_blank" rel="noopener">LinkedIn</a>
                     </span>
                     <span class="hp-footer-built">Built with SolidJS</span>
