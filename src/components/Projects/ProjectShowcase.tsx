@@ -19,11 +19,12 @@ const catLabel: Record<string, string> = {
 export const ProjectShowcase = () => {
     const [filter, setFilter] = createSignal<string>("all");
     const [open, setOpen] = createSignal<string | null>(null);
+    const [showAll, setShowAll] = createSignal(false);
 
-    const visible = () =>
-        filter() === "all"
-            ? projects
-            : projects.filter((p) => p.categories.includes(filter()));
+    const visible = () => {
+        if (filter() !== "all") return projects.filter((p) => p.categories.includes(filter()));
+        return showAll() ? projects : projects.filter((p) => (p as any).curated);
+    };
 
     const toggle = (id: string) => setOpen(open() === id ? null : id);
 
@@ -38,9 +39,12 @@ export const ProjectShowcase = () => {
                             class="pj-filter"
                             role="tab"
                             aria-selected={filter() === f.id}
-                            classList={{ active: filter() === f.id }}
+                            classList={{ active: filter() === f.id, "pj-filter-ai": f.id === "ai" }}
                             onClick={() => setFilter(f.id)}
                         >
+                            <Show when={f.id === "ai"}>
+                                <span class="pj-spark" aria-hidden="true">✦</span>
+                            </Show>
                             {f.label}
                         </button>
                     )}
@@ -155,6 +159,14 @@ export const ProjectShowcase = () => {
                     )}
                 </For>
             </div>
+
+            <Show when={filter() === "all"}>
+                <div class="pj-more">
+                    <button class="pj-more-btn" onClick={() => setShowAll(!showAll())}>
+                        {showAll() ? "Show fewer" : `Show all ${projects.length} projects →`}
+                    </button>
+                </div>
+            </Show>
         </>
     );
 };
