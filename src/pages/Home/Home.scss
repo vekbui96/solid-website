@@ -38,6 +38,36 @@ section[id] { scroll-margin-top: 84px; }
 .hp-btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
 .hp-btn-ghost:hover { background: var(--surface); }
 
+/* AI-accented CTA → Job Analyzer (gradient border + sparkle) */
+.hp-btn-ai {
+    color: var(--text);
+    border: 1px solid transparent;
+    background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        linear-gradient(120deg, var(--accent), #a78bfa) border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.hp-btn-ai:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.18);
+}
+.hp-btn-spark {
+    background: linear-gradient(120deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: hp-btn-twinkle 1.9s ease-in-out infinite;
+}
+@keyframes hp-btn-twinkle {
+    0%, 100% { opacity: 0.65; transform: scale(0.9) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hp-btn-spark { animation: none; }
+}
+
 .hp-cta-row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .hp-cta-center { justify-content: center; }
 

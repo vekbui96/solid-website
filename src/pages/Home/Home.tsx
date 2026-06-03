@@ -11,6 +11,7 @@ false && reveal;
 export const Home = () => {
     let storyRef: HTMLElement | undefined;
     let projectsRef: HTMLElement | undefined;
+    let fitRef: HTMLElement | undefined;
 
     const scrollTo = (el?: HTMLElement) =>
         el?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -32,6 +33,9 @@ export const Home = () => {
                         <div class="hp-cta-row">
                             <button class="hp-btn hp-btn-primary" onClick={() => scrollTo(projectsRef)}>
                                 See what I build →
+                            </button>
+                            <button class="hp-btn hp-btn-ai" onClick={() => scrollTo(fitRef)}>
+                                <span class="hp-btn-spark" aria-hidden="true">✦</span> Job Analyzer
                             </button>
                             <button class="hp-btn hp-btn-ghost" onClick={() => scrollTo(storyRef)}>
                                 Read the story
@@ -181,7 +185,7 @@ export const Home = () => {
             </section>
 
             {/* ──────────────────── FIT ANALYZER ──────────────────── */}
-            <section class="hp-fit hp-scene-dark" id="fit" data-nav-dark>
+            <section class="hp-fit hp-scene-dark" id="fit" data-nav-dark ref={fitRef}>
                 <FitAnalyzer />
             </section>
 
