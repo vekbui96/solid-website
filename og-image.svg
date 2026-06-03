@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0e14"/>
+      <stop offset="1" stop-color="#121723"/>
+    </linearGradient>
+    <linearGradient id="ai" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="950" cy="160" r="280" fill="#22d3ee" opacity="0.08"/>
+  <text x="80" y="150" font-family="'JetBrains Mono', monospace" font-size="22" letter-spacing="3" fill="url(#ai)">FULL-STACK ENGINEER → AI SYSTEMS</text>
+  <text x="78" y="300" font-family="Inter, system-ui, sans-serif" font-size="92" font-weight="800" fill="#e6eaf2" letter-spacing="-2">I build software</text>
+  <text x="78" y="408" font-family="Inter, system-ui, sans-serif" font-size="92" font-weight="800" fill="#e6eaf2" letter-spacing="-2">systems that <tspan fill="url(#ai)">think.</tspan></text>
+  <text x="80" y="520" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="400" fill="#8b95a7">Ve Bui — AI agents, RAG, and enterprise AI on deep engineering.</text>
+  <text x="80" y="585" font-family="'JetBrains Mono', monospace" font-size="20" fill="#64748b">vekbui96.github.io/solid-website</text>
+</svg>
