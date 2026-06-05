@@ -1,6 +1,7 @@
 import { ExperienceList } from "../../components/Experience/Experience";
 import { ProjectShowcase } from "../../components/Projects/ProjectShowcase";
 import { FitAnalyzer } from "../../components/Fit/FitAnalyzer";
+import { ContactForm } from "../../components/Contact/ContactForm";
 import { reveal } from "../../utils/reveal";
 // @ts-ignore
 import styles from "./Home.scss?inline"
@@ -245,8 +246,9 @@ export const Home = () => {
                     <p class="hp-close-sub">
                         I help teams turn deep engineering into AI that delivers measurable outcomes.
                     </p>
+                    <ContactForm />
                     <div class="hp-cta-row hp-cta-center">
-                        <a class="hp-btn hp-btn-primary" href="mailto:tommy.bui1428@gmail.com">Get in touch →</a>
+                        <a class="hp-btn hp-btn-ghost" href="mailto:tommy.bui1428@gmail.com">Or just email me →</a>
                         <a class="hp-btn hp-btn-ghost" href="./Ve-Bui-Resume.pdf" target="_blank" rel="noopener">Download résumé ↓</a>
                         <a class="hp-btn hp-btn-ghost" href="https://linkedin.com/in/vekbui96" target="_blank" rel="noopener">LinkedIn</a>
                     </div>
