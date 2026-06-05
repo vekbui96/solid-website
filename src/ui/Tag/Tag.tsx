@@ -19,7 +19,7 @@ export type TagProps = {
 
 /**
  * A pill/chip. Static by default (skill tags); becomes a toggle when `pressed`
- * is supplied (discipline filters). The `ai` variant carries the ✦ sparkle.
+ * is supplied (discipline filters). The `ai` variant is an accented outline.
  */
 export const Tag = (props: TagProps) => {
   const [local, rest] = splitProps(props, ['variant', 'pressed', 'class', 'children']);
@@ -36,14 +36,7 @@ export const Tag = (props: TagProps) => {
       .filter(Boolean)
       .join(' ');
 
-  const Content = () => (
-    <>
-      <Show when={local.variant === 'ai'}>
-        <span class="ui-tag__spark" aria-hidden="true">✦</span>
-      </Show>
-      {local.children}
-    </>
-  );
+  const Content = () => <>{local.children}</>;
 
   return (
     <>

@@ -2,7 +2,7 @@
   {
     "id": "ops-copilot",
     "title": "Enterprise Operations Copilot",
-    "tagline": "Natural-language operations over fragmented enterprise data.",
+    "tagline": "Ask questions in plain English across systems that don't talk to each other.",
     "categories": [
       "ai"
     ],
@@ -101,7 +101,7 @@
   {
     "id": "sdd-harness",
     "title": "Spec-Driven Development Harness",
-    "tagline": "A company harness that scales AI-assisted development across an organization.",
+    "tagline": "A shared setup so teams use AI coding tools the same way.",
     "categories": [
       "ai",
       "backend"
@@ -193,7 +193,7 @@
   {
     "id": "context-engineering",
     "title": "Context Engineering Framework",
-    "tagline": "Reusable context strategies that improve AI output quality.",
+    "tagline": "Reusable prompt and context patterns that get better answers from an LLM.",
     "categories": [
       "ai"
     ],
@@ -222,7 +222,7 @@
   {
     "id": "incident-commander",
     "title": "AI Incident Commander",
-    "tagline": "Detects, triages, and narrates incidents in real time.",
+    "tagline": "Spots incidents, ranks them by severity, and writes the timeline as they happen.",
     "categories": [
       "ai"
     ],
@@ -251,7 +251,7 @@
   {
     "id": "ai-eval",
     "title": "AI Evaluation & Observability Platform",
-    "tagline": "Measuring and monitoring AI system performance in production-like environments.",
+    "tagline": "Tests and tracks how an LLM feature behaves before it ships.",
     "categories": [
       "ai"
     ],
@@ -273,7 +273,7 @@
   {
     "id": "workflow-agents",
     "title": "Engineering Workflow Automation Agents",
-    "tagline": "Agents that automate repetitive engineering tasks with human oversight.",
+    "tagline": "Small tools that handle repetitive engineering chores, with a human approving the result.",
     "categories": [
       "ai"
     ],
@@ -301,7 +301,7 @@
   {
     "id": "arch-review-agent",
     "title": "AI Architecture Review Agent",
-    "tagline": "Evaluates software architectures and recommends improvements.",
+    "tagline": "Reads a system design and flags the weak spots.",
     "categories": [
       "ai"
     ],

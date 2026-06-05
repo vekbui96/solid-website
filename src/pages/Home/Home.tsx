@@ -25,18 +25,18 @@ export const Home = () => {
             <section class="hp-hero" id="hero">
                 <div class="container hp-hero-inner">
                     <div class="hp-hero-copy" use:reveal>
-                        <p class="hp-eyebrow">Full-Stack Engineer → AI Systems</p>
-                        <h1 class="hp-hero-title">I build software systems that think.</h1>
+                        <p class="hp-eyebrow">Software Engineer · Dallas, TX</p>
+                        <h1 class="hp-hero-title">I build backends that hold up in production.</h1>
                         <p class="hp-hero-sub">
-                            Six years across backend, full-stack, and cloud — now architecting
-                            AI agents and enterprise AI solutions.
+                            Six years on backend, full-stack, and cloud, most recently building
+                            LLM features at Capital One. I like systems that survive real traffic.
                         </p>
                         <div class="hp-cta-row">
                             <button class="hp-btn hp-btn-primary" onClick={() => scrollTo(projectsRef)}>
-                                See what I build →
+                                See my work →
                             </button>
                             <button class="hp-btn hp-btn-ai" onClick={() => scrollTo(fitRef)}>
-                                <span class="hp-btn-spark" aria-hidden="true">✦</span> Job Analyzer
+                                Job Analyzer
                             </button>
                             <button class="hp-btn hp-btn-ghost" onClick={() => scrollTo(storyRef)}>
                                 Read the story
@@ -62,33 +62,32 @@ export const Home = () => {
             <section class="hp-act" ref={storyRef} id="story">
                 <div class="container hp-act-inner">
                     <div class="hp-act-copy" use:reveal>
-                        <p class="hp-eyebrow">01 — Foundations</p>
-                        <h2 class="hp-act-title">It started with the backend.</h2>
+                        <p class="hp-eyebrow">01 / Backend</p>
+                        <h2 class="hp-act-title">I started on the backend.</h2>
                         <p class="hp-act-body">
-                            APIs, services, integrations, and the data systems that keep everything
-                            running. I went deep on system design, scalability, and reliability — the
-                            disciplines that decide whether software survives contact with production,
-                            not just a demo.
+                            APIs, services, and the databases behind them. I learned to care about
+                            the unglamorous parts (schema design, indexes, retries, on-call), because
+                            those are what break at 2am, not the demo.
                         </p>
                         <ul class="hp-details">
                             <li>
-                                <span class="hp-d-label">System design</span>
-                                <span class="hp-d-desc">Enterprise APIs and microservices in Java, Spring Boot, and Clojure.</span>
+                                <span class="hp-d-label">Services</span>
+                                <span class="hp-d-desc">Java and Spring Boot in production at Capital One and State Farm, plus some Clojure.</span>
                             </li>
                             <li>
-                                <span class="hp-d-label">Data &amp; persistence</span>
-                                <span class="hp-d-desc">Relational schema design, indexing, and query optimization for high-throughput processing.</span>
+                                <span class="hp-d-label">Databases</span>
+                                <span class="hp-d-desc">Postgres schema design and query tuning for high-volume pipelines.</span>
                             </li>
                             <li>
-                                <span class="hp-d-label">Reliability at scale</span>
-                                <span class="hp-d-desc">Monitoring, alerting, and on-call ownership — kept production downtime under 1%.</span>
+                                <span class="hp-d-label">Reliability</span>
+                                <span class="hp-d-desc">Monitoring, alerts, and on-call. Kept downtime under 1%.</span>
                             </li>
                             <li>
-                                <span class="hp-d-label">Secure integrations</span>
-                                <span class="hp-d-desc">Queues, third-party APIs, and service-to-service auth with OAuth.</span>
+                                <span class="hp-d-label">Integrations</span>
+                                <span class="hp-d-desc">Queues, third-party APIs, and OAuth between services.</span>
                             </li>
                         </ul>
-                        <p class="hp-punch">Focused on building software that <strong>works</strong>.</p>
+                        <p class="hp-punch">This is where I learned what "reliable" actually costs.</p>
                     </div>
                     <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram" viewBox="0 0 380 220" role="img" aria-label="Backend topology: client to API to auth, queue, and Postgres">
@@ -116,32 +115,32 @@ export const Home = () => {
             <section class="hp-act hp-act-alt" id="range">
                 <div class="container hp-act-inner hp-reverse">
                     <div class="hp-act-copy" use:reveal>
-                        <p class="hp-eyebrow hp-eyebrow-2">02 — Range</p>
-                        <h2 class="hp-act-title">Then I owned the whole product.</h2>
+                        <p class="hp-eyebrow hp-eyebrow-2">02 / Full-stack</p>
+                        <h2 class="hp-act-title">Then I took features end to end.</h2>
                         <p class="hp-act-body">
-                            I expanded into frontend and product, owning features end-to-end across UI,
-                            testing, observability, and cloud. I stopped shipping endpoints and started
-                            shipping experiences people actually reach for.
+                            I moved into the frontend and started owning whole features instead of
+                            just endpoints: the UI, the tests, the dashboards, and the deploy. Turns
+                            out the hard part is usually the seams between those, not any one of them.
                         </p>
                         <ul class="hp-details">
                             <li>
-                                <span class="hp-d-label">Frontend &amp; UX</span>
-                                <span class="hp-d-desc">Product UIs and micro-frontends in TypeScript and SolidJS, with reusable component systems.</span>
+                                <span class="hp-d-label">Frontend</span>
+                                <span class="hp-d-desc">TypeScript and SolidJS, including a micro-frontend setup and a shared component library.</span>
                             </li>
                             <li>
-                                <span class="hp-d-label">Testing &amp; quality</span>
-                                <span class="hp-d-desc">Automated test suites and layered validation across client, BFF, and domain.</span>
+                                <span class="hp-d-label">Testing</span>
+                                <span class="hp-d-desc">Automated suites and validation across the client, the BFF, and the domain layer.</span>
                             </li>
                             <li>
                                 <span class="hp-d-label">Observability</span>
-                                <span class="hp-d-desc">Splunk and New Relic dashboards, correlation tracing, and 504 root-cause investigations.</span>
+                                <span class="hp-d-desc">Splunk and New Relic dashboards, trace correlation, and a lot of 504 hunting.</span>
                             </li>
                             <li>
-                                <span class="hp-d-label">Cloud delivery</span>
-                                <span class="hp-d-desc">Shipped end-to-end on AWS with CI/CD pipelines and production rollout planning.</span>
+                                <span class="hp-d-label">Delivery</span>
+                                <span class="hp-d-desc">Shipped on AWS with CI/CD pipelines and real rollout planning.</span>
                             </li>
                         </ul>
-                        <p class="hp-punch">Focused on building software people <strong>enjoy using</strong>.</p>
+                        <p class="hp-punch">The interesting work lives in the seams between layers.</p>
                     </div>
                     <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram hp-diagram-2" viewBox="0 0 400 240" role="img" aria-label="Full system: web and mobile clients, API, database, CI/CD, and observability">
@@ -172,22 +171,20 @@ export const Home = () => {
             <section class="hp-act hp-scene-dark hp-act-ai" id="ai" data-nav-dark>
                 <div class="container hp-act-inner">
                     <div class="hp-act-copy" use:reveal>
-                        <p class="hp-eyebrow hp-eyebrow-ai">03 — Intelligence</p>
-                        <h2 class="hp-act-title">Now I build systems that think alongside people.</h2>
+                        <p class="hp-eyebrow hp-eyebrow-ai">03 / AI</p>
+                        <h2 class="hp-act-title">Lately, that means building with LLMs.</h2>
                         <p class="hp-act-body">
-                            I build AI agents, retrieval-augmented generation systems, workflow automation,
-                            and enterprise AI solutions — software that amplifies engineering teams and
-                            business outcomes.
+                            At Capital One I build LLM features on top of that same backend work:
+                            chat over internal data, search that cites its sources, and small tools
+                            that automate steps people used to do by hand. Same rules as before:
+                            it has to be reliable and you have to be able to debug it.
                         </p>
-                        <p class="hp-punch">
-                            Focused on systems that help people <strong>think, decide, and work more
-                            effectively</strong>.
-                        </p>
+                        <p class="hp-punch">An LLM is just one more unreliable dependency to design around.</p>
                     </div>
                     <div class="hp-act-visual" use:reveal={{ delay: 120 }}>
                         <svg class="hp-diagram hp-diagram-ai" viewBox="0 0 420 220" role="img" aria-label="An AI agent layer reasoning above and acting on the engineered system">
                             <rect class="n ai-layer" x="40" y="10" width="340" height="50" rx="12" />
-                            <text class="lbl ai-lbl" x="210" y="40" text-anchor="middle">ai / agents · reason · retrieve · act</text>
+                            <text class="lbl ai-lbl" x="210" y="40" text-anchor="middle">llm · retrieve · call tools</text>
                             <line class="edge flow" x1="140" y1="60" x2="140" y2="120" />
                             <line class="edge flow" x1="210" y1="60" x2="210" y2="120" />
                             <line class="edge flow" x1="280" y1="60" x2="280" y2="120" />
@@ -195,7 +192,7 @@ export const Home = () => {
                             <text class="lbl" x="210" y="151" text-anchor="middle">engineered system</text>
                             <text class="lbl sub" x="210" y="173" text-anchor="middle">apis · data · cloud · observability</text>
                         </svg>
-                        <p class="hp-caption hp-caption-ai">intelligence, grounded in real engineering</p>
+                        <p class="hp-caption hp-caption-ai">the LLM sits on top of normal services</p>
                     </div>
                 </div>
             </section>
@@ -203,8 +200,8 @@ export const Home = () => {
             {/* ──────────────────── PROJECTS (dark) ──────────────────── */}
             <section class="hp-projects hp-scene-dark" ref={projectsRef} id="projects" data-nav-dark>
                 <div class="container">
-                    <p class="hp-eyebrow hp-eyebrow-ai" use:reveal>Selected systems</p>
-                    <h2 class="hp-section-title">What I'm building.</h2>
+                    <p class="hp-eyebrow hp-eyebrow-ai" use:reveal>Projects</p>
+                    <h2 class="hp-section-title">Things I've built.</h2>
 
                     <ProjectShowcase />
                 </div>
@@ -219,7 +216,7 @@ export const Home = () => {
             <section class="hp-exp hp-scene-dark" id="experience" data-nav-dark>
                 <div class="container">
                     <p class="hp-eyebrow" use:reveal>Experience</p>
-                    <h2 class="hp-section-title">Where I've delivered.</h2>
+                    <h2 class="hp-section-title">Where I've worked.</h2>
                     <ExperienceList />
                 </div>
             </section>
@@ -227,14 +224,14 @@ export const Home = () => {
             {/* ──────────────────── CAPABILITIES ──────────────────── */}
             <section class="hp-caps hp-scene-dark" id="systems" data-nav-dark>
                 <div class="container">
-                    <p class="hp-eyebrow">Capabilities</p>
-                    <h2 class="hp-section-title">Systems I can own end-to-end.</h2>
+                    <p class="hp-eyebrow">Stack</p>
+                    <h2 class="hp-section-title">What I work with.</h2>
                     <div class="hp-matrix">
                         <div class="hp-row"><span class="hp-row-k">Backend &amp; APIs</span><span class="hp-row-v">Java · Spring Boot · REST · Clojure</span></div>
                         <div class="hp-row"><span class="hp-row-k">Data &amp; Storage</span><span class="hp-row-v">PostgreSQL · schema design · query performance</span></div>
                         <div class="hp-row"><span class="hp-row-k">Cloud &amp; Infra</span><span class="hp-row-v">AWS · CI/CD · observability · on-call</span></div>
                         <div class="hp-row"><span class="hp-row-k">Frontend</span><span class="hp-row-v">TypeScript · SolidJS · micro-frontends</span></div>
-                        <div class="hp-row"><span class="hp-row-k">AI Systems</span><span class="hp-row-v">Agents · RAG · workflow automation · evals</span></div>
+                        <div class="hp-row"><span class="hp-row-k">AI</span><span class="hp-row-v">LLM apps · retrieval · tool-calling · evals</span></div>
                     </div>
                 </div>
             </section>
@@ -242,9 +239,9 @@ export const Home = () => {
             {/* ──────────────────── CLOSE / CTA ──────────────────── */}
             <section class="hp-close hp-scene-dark" id="contact" data-nav-dark>
                 <div class="container hp-close-inner" use:reveal>
-                    <h2 class="hp-close-title">Let's build intelligent systems together.</h2>
+                    <h2 class="hp-close-title">Want to talk?</h2>
                     <p class="hp-close-sub">
-                        I help teams turn deep engineering into AI that delivers measurable outcomes.
+                        I'm open to interesting backend and AI work. Send a note and I'll reply.
                     </p>
                     <ContactForm />
                     <div class="hp-cta-row hp-cta-center">

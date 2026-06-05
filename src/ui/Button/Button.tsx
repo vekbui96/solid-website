@@ -18,8 +18,8 @@ export type ButtonProps = {
 } & JSX.HTMLAttributes<HTMLElement>;
 
 /**
- * The site's primary action. `ai` variant carries the ✦ sparkle used for the
- * Job Analyzer / AI calls-to-action. Theming comes entirely from design tokens,
+ * The site's primary action. The `ai` variant is an accented outline used for
+ * the Job Analyzer call-to-action. Theming comes entirely from design tokens,
  * so it adapts to light and dark scenes automatically.
  */
 export const Button = (props: ButtonProps) => {
@@ -43,14 +43,7 @@ export const Button = (props: ButtonProps) => {
       .filter(Boolean)
       .join(' ');
 
-  const Content = () => (
-    <>
-      <Show when={local.variant === 'ai'}>
-        <span class="ui-btn__spark" aria-hidden="true">✦</span>
-      </Show>
-      {local.children}
-    </>
-  );
+  const Content = () => <>{local.children}</>;
 
   return (
     <>

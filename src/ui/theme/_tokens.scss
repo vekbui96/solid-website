@@ -3,26 +3,27 @@
 // `.ui-theme`) without duplicating values.
 
 @mixin design-tokens {
-  /* light base (Acts I–II, Capabilities, Close) */
-  --bg: #ffffff;
-  --surface: #f8fafc;
-  --text: #0b1220;
-  --muted: #5b6577;
-  --border: #e5e8ee;
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
+  /* light / paper base (Acts I–II, Capabilities, Close) */
+  --bg: #faf7f0;
+  --surface: #efe9dc;
+  --text: #1b1714;
+  --muted: #6b6258;
+  --border: #e0d8c8;
+  --accent: #e5392f;          /* signal red — fills, rules, large headings */
+  --accent-ink: #bf2b22;      /* darker red for small text (holds AA on cream) */
+  --accent-soft: rgba(229, 57, 47, 0.10);
 
-  /* dark scene tokens (Act III + Projects) */
-  --d-bg: #0b0e14;
-  --d-surface: #121723;
-  --d-text: #e6eaf2;
-  --d-muted: #8b95a7;
-  --d-border: #222a38;
-  --d-accent: #22d3ee;
-  --d-accent-2: #a78bfa;
+  /* dark scene tokens (Act III + Projects) — warm near-black, same red accent */
+  --d-bg: #17120f;
+  --d-surface: #221b16;
+  --d-text: #f4ede1;
+  --d-muted: #a59889;
+  --d-border: #352b22;
+  --d-accent: #ff5a4d;        /* brighter red for contrast on dark */
+  --d-accent-2: #f2a541;      /* warm secondary (was violet) */
 
-  --font-display: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, monospace;
 
   --maxw: 1120px;
 }
@@ -37,5 +38,6 @@
   --muted: var(--d-muted);
   --border: var(--d-border);
   --accent: var(--d-accent);
-  --accent-soft: rgba(34, 211, 238, 0.12);
+  --accent-ink: var(--d-accent);
+  --accent-soft: rgba(255, 90, 77, 0.14);
 }

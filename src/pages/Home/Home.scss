@@ -7,10 +7,10 @@ section[id] { scroll-margin-top: 84px; }
     letter-spacing: 0.12em;
     font-size: 12px;
     font-weight: 500;
-    color: var(--accent);
+    color: var(--accent-ink);
     margin: 0;
 }
-.hp-eyebrow-2 { color: #4f46e5; }
+.hp-eyebrow-2 { color: var(--accent-ink); }
 .hp-eyebrow-ai { color: var(--d-accent); }
 
 .hp-section-title {
@@ -33,39 +33,23 @@ section[id] { scroll-margin-top: 84px; }
     display: inline-block;
     transition: transform 0.15s ease, background 0.15s ease, filter 0.15s ease;
 }
-.hp-btn-primary { background: var(--accent); color: #fff; }
+.hp-btn-primary { background: var(--accent-ink); color: #fff; }
 .hp-btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .hp-btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
 .hp-btn-ghost:hover { background: var(--surface); }
 
-/* AI-accented CTA → Job Analyzer (gradient border + sparkle) */
+/* Job Analyzer CTA — accented outline, no gradient/sparkle */
 .hp-btn-ai {
-    color: var(--text);
-    border: 1px solid transparent;
-    background:
-        linear-gradient(var(--bg), var(--bg)) padding-box,
-        linear-gradient(120deg, var(--accent), #a78bfa) border-box;
+    color: var(--accent-ink);
+    border: 1.5px solid var(--accent);
+    background: transparent;
     display: inline-flex;
     align-items: center;
     gap: 7px;
 }
 .hp-btn-ai:hover {
+    background: var(--accent-soft);
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(99, 102, 241, 0.18);
-}
-.hp-btn-spark {
-    background: linear-gradient(120deg, var(--accent), #a78bfa);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: hp-btn-twinkle 1.9s ease-in-out infinite;
-}
-@keyframes hp-btn-twinkle {
-    0%, 100% { opacity: 0.65; transform: scale(0.9) rotate(0deg); }
-    50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .hp-btn-spark { animation: none; }
 }
 
 .hp-cta-row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
@@ -180,7 +164,7 @@ section[id] { scroll-margin-top: 84px; }
     border-radius: 50%;
     background: var(--accent);
 }
-.hp-act-alt .hp-details li::before { background: #4f46e5; }
+.hp-act-alt .hp-details li::before { background: var(--accent); }
 .hp-d-label { font-weight: 600; font-size: 15px; color: var(--text); letter-spacing: -0.01em; }
 .hp-d-desc { font-size: 14px; color: var(--muted); line-height: 1.55; }
 .hp-punch {
@@ -201,7 +185,7 @@ section[id] { scroll-margin-top: 84px; }
     --muted: var(--d-muted);
     --border: var(--d-border);
     --accent: var(--d-accent);
-    --accent-soft: rgba(34, 211, 238, 0.12);
+    --accent-soft: rgba(255, 90, 77, 0.12);
     background: var(--d-bg);
     color: var(--d-text);
 }
@@ -211,7 +195,7 @@ section[id] { scroll-margin-top: 84px; }
 .hp-scene-dark .hp-diagram .lbl { fill: var(--d-text); }
 .hp-scene-dark .hp-diagram .edge { stroke: var(--d-border); }
 
-.hp-diagram-ai .ai-layer { fill: rgba(34, 211, 238, 0.06); stroke: var(--d-accent); stroke-width: 1.5; }
+.hp-diagram-ai .ai-layer { fill: rgba(255, 90, 77, 0.06); stroke: var(--d-accent); stroke-width: 1.5; }
 .hp-diagram-ai .ai-lbl { fill: var(--d-accent); }
 .hp-diagram-ai .dim { fill: var(--d-surface); stroke: var(--d-border); opacity: 0.7; }
 .hp-diagram-ai .flow { stroke: var(--d-accent); stroke-dasharray: 4 4; }
@@ -355,7 +339,7 @@ section[id] { scroll-margin-top: 84px; }
     width: 460px;
     height: 460px;
     max-width: 80vw;
-    background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 70%);
+    background: radial-gradient(circle, rgba(255, 90, 77, 0.12), transparent 70%);
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 0;
@@ -373,8 +357,8 @@ section[id] { scroll-margin-top: 84px; }
     animation: hp-glow 3.2s ease-in-out infinite;
 }
 @keyframes hp-glow {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
-    50% { filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.55)); }
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 90, 77, 0)); }
+    50% { filter: drop-shadow(0 0 5px rgba(255, 90, 77, 0.55)); }
 }
 
 /* ============ motion: reduced-motion ============ */

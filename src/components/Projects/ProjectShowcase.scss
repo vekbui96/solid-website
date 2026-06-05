@@ -18,54 +18,14 @@
     cursor: pointer;
     transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
-.pj-filter:hover { color: var(--d-text); border-color: #33405a; }
+.pj-filter:hover { color: var(--d-text); border-color: var(--d-muted); }
 .pj-filter.active {
-    color: #0b0e14;
+    color: var(--d-bg);
     background: var(--d-accent);
     border-color: var(--d-accent);
 }
 
-/* AI pill — pizzazz: gradient border, glow pulse, twinkling sparkle */
-.pj-filter-ai {
-    position: relative;
-    color: var(--d-text);
-    border: 1px solid transparent;
-    background:
-        linear-gradient(var(--d-bg), var(--d-bg)) padding-box,
-        linear-gradient(120deg, var(--d-accent), var(--d-accent-2)) border-box;
-    animation: pj-ai-glow 2.6s ease-in-out infinite;
-}
-.pj-filter-ai:hover {
-    color: var(--d-text);
-    border-color: transparent;
-}
-.pj-filter-ai.active {
-    color: #0b0e14;
-    background: linear-gradient(120deg, var(--d-accent), var(--d-accent-2));
-    border-color: transparent;
-}
-.pj-spark {
-    margin-right: 6px;
-    display: inline-block;
-    background: linear-gradient(120deg, var(--d-accent), var(--d-accent-2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: pj-twinkle 1.8s ease-in-out infinite;
-}
-.pj-filter-ai.active .pj-spark {
-    background: none;
-    -webkit-text-fill-color: #0b0e14;
-    color: #0b0e14;
-}
-@keyframes pj-ai-glow {
-    0%, 100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
-    50% { box-shadow: 0 0 16px rgba(34, 211, 238, 0.4); }
-}
-@keyframes pj-twinkle {
-    0%, 100% { opacity: 0.6; transform: scale(0.85) rotate(0deg); }
-    50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
-}
+/* the AI filter renders like every other pill — no special pizzazz */
 
 /* show all / fewer toggle */
 .pj-more { display: flex; justify-content: center; margin-top: 28px; }
@@ -82,12 +42,7 @@
     cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
-.pj-more-btn:hover { border-color: var(--d-accent); color: var(--d-accent); background: rgba(34, 211, 238, 0.06); }
-
-@media (prefers-reduced-motion: reduce) {
-    .pj-filter-ai { animation: none; }
-    .pj-spark { animation: none; }
-}
+.pj-more-btn:hover { border-color: var(--d-accent); color: var(--d-accent); background: rgba(255, 90, 77, 0.06); }
 
 /* grid */
 .pj-grid {
@@ -103,8 +58,8 @@
     overflow: hidden;
     transition: border-color 0.15s ease, transform 0.15s ease;
 }
-.pj-card:hover { border-color: #33405a; }
-.pj-card.featured { border-color: rgba(34, 211, 238, 0.4); }
+.pj-card:hover { border-color: var(--d-muted); }
+.pj-card.featured { border-color: rgba(255, 90, 77, 0.4); }
 .pj-card.open {
     grid-column: 1 / -1;
     border-color: var(--d-accent);
@@ -136,7 +91,7 @@
     border-radius: 6px;
     padding: 2px 8px;
 }
-.pj-cat-star { color: var(--d-accent); border-color: rgba(34, 211, 238, 0.4); }
+.pj-cat-star { color: var(--d-accent); border-color: rgba(255, 90, 77, 0.4); }
 
 .pj-title { font-size: 19px; font-weight: 700; color: var(--d-text); line-height: 1.25; }
 .pj-tag { font-size: 14px; color: var(--d-muted); margin-top: 4px; }
@@ -243,8 +198,8 @@
 
 /* takeaway callout */
 .pj-takeaway {
-    background: rgba(34, 211, 238, 0.06);
-    border: 1px solid rgba(34, 211, 238, 0.25);
+    background: rgba(255, 90, 77, 0.06);
+    border: 1px solid rgba(255, 90, 77, 0.25);
     border-radius: 12px;
     padding: 16px 18px;
     margin-bottom: 18px;
@@ -261,7 +216,7 @@
     font-weight: 600;
     color: var(--d-accent);
     text-decoration: none;
-    border: 1px solid rgba(34, 211, 238, 0.4);
+    border: 1px solid rgba(255, 90, 77, 0.4);
     border-radius: 999px;
     padding: 7px 14px;
     transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
@@ -269,7 +224,7 @@
 .pj-link:hover {
     background: var(--d-accent);
     border-color: var(--d-accent);
-    color: #04121a;
+    color: var(--d-bg);
 }
 .pj-link:focus-visible {
     outline: 2px solid var(--d-accent);

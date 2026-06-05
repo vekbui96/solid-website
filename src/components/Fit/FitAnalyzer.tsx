@@ -108,10 +108,10 @@ export const FitAnalyzer = () => {
         <>
             <style>{styles}</style>
             <div class="container fa-wrap">
-                <p class="hp-eyebrow fa-eyebrow"><span class="fa-spark" aria-hidden="true">✦</span> Fit Analyzer</p>
-                <h2 class="fa-title">Think I'm a good fit? Let's find out.</h2>
+                <p class="hp-eyebrow fa-eyebrow">Fit Analyzer</p>
+                <h2 class="fa-title">Wondering if I fit a role?</h2>
                 <p class="fa-sub">
-                    Paste a job description — I'll show you honestly where I line up, and where I don't.
+                    Paste a job description. It runs in your browser and shows where I line up and where I don't.
                 </p>
 
                 <div class="fa-input-wrap">

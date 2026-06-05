@@ -40,45 +40,23 @@
   filter: brightness(1.05);
 }
 
-/* ai variant — gradient border + glow so it begs to be clicked */
+/* ai variant — accented outline */
 .ui-tag--ai {
-  border-color: transparent;
-  color: var(--text);
-  background:
-    linear-gradient(var(--surface), var(--surface)) padding-box,
-    linear-gradient(120deg, var(--d-accent), var(--d-accent-2)) border-box;
-  box-shadow: 0 0 14px -4px rgba(34, 211, 238, 0.5);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  background: transparent;
 }
 .ui-tag--ai.ui-tag--on {
-  color: #04121a;
-  background: linear-gradient(120deg, var(--d-accent), var(--d-accent-2));
-  box-shadow: 0 0 18px -3px rgba(34, 211, 238, 0.75);
+  color: var(--d-bg);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 .ui-tag--ai.ui-tag--interactive:hover {
-  color: var(--text);
-  box-shadow: 0 0 20px -3px rgba(34, 211, 238, 0.8);
-}
-
-.ui-tag__spark {
-  display: inline-block;
-  animation: ui-tag-spark 2.4s ease-in-out infinite;
-}
-
-@keyframes ui-tag-spark {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.25);
-  }
+  background: var(--accent-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-tag--interactive,
-  .ui-tag__spark {
+  .ui-tag--interactive {
     transition: none;
     animation: none;
   }

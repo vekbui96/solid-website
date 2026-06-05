@@ -60,9 +60,6 @@ export const ProjectShowcase = () => {
                             classList={{ active: filter() === f.id, "pj-filter-ai": f.id === "ai" }}
                             onClick={() => setFilter(f.id)}
                         >
-                            <Show when={f.id === "ai"}>
-                                <span class="pj-spark" aria-hidden="true">✦</span>
-                            </Show>
                             {f.label}
                         </button>
                     )}
