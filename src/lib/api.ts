@@ -9,6 +9,8 @@ export interface ContactPayload {
     name: string;
     email: string;
     message: string;
+    /** Honeypot — should always be empty for real users. */
+    website?: string;
 }
 
 export interface ContactResult {

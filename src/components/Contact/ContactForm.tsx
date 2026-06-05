@@ -9,6 +9,7 @@ export const ContactForm = () => {
     const [name, setName] = createSignal("");
     const [email, setEmail] = createSignal("");
     const [message, setMessage] = createSignal("");
+    const [website, setWebsite] = createSignal(""); // honeypot — stays empty for humans
     const [status, setStatus] = createSignal<Status>("idle");
     const [feedback, setFeedback] = createSignal("");
     const [errors, setErrors] = createSignal<Record<string, string>>({});
@@ -26,6 +27,7 @@ export const ContactForm = () => {
             name: name().trim(),
             email: email().trim(),
             message: message().trim(),
+            website: website(),
         });
 
         if (result.ok) {
@@ -91,6 +93,20 @@ export const ContactForm = () => {
                     <Show when={fieldErr("message")}>
                         <span id="cf-message-err" class="cf-err">{fieldErr("message")}</span>
                     </Show>
+                </div>
+
+                {/* Honeypot: hidden from people, tempting to bots. Off-screen, not
+                    focusable, excluded from a11y tree and autofill. */}
+                <div class="cf-hp" aria-hidden="true">
+                    <label for="cf-website">Website</label>
+                    <input
+                        id="cf-website"
+                        type="text"
+                        tabindex="-1"
+                        autocomplete="off"
+                        value={website()}
+                        onInput={(e) => setWebsite(e.currentTarget.value)}
+                    />
                 </div>
 
                 <div class="cf-actions">
