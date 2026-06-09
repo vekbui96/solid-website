@@ -42,7 +42,7 @@
     cursor: pointer;
     transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
-.pj-more-btn:hover { border-color: var(--d-accent); color: var(--d-accent); background: rgba(255, 90, 77, 0.06); }
+.pj-more-btn:hover { border-color: var(--d-accent); color: var(--d-accent); background: rgba(34, 211, 238, 0.06); }
 
 /* grid */
 .pj-grid {
@@ -59,7 +59,7 @@
     transition: border-color 0.15s ease, transform 0.15s ease;
 }
 .pj-card:hover { border-color: var(--d-muted); }
-.pj-card.featured { border-color: rgba(255, 90, 77, 0.4); }
+.pj-card.featured { border-color: rgba(34, 211, 238, 0.4); }
 .pj-card.open {
     grid-column: 1 / -1;
     border-color: var(--d-accent);
@@ -91,7 +91,7 @@
     border-radius: 6px;
     padding: 2px 8px;
 }
-.pj-cat-star { color: var(--d-accent); border-color: rgba(255, 90, 77, 0.4); }
+.pj-cat-star { color: var(--d-accent); border-color: rgba(34, 211, 238, 0.4); }
 
 .pj-title { font-size: 19px; font-weight: 700; color: var(--d-text); line-height: 1.25; }
 .pj-tag { font-size: 14px; color: var(--d-muted); margin-top: 4px; }
@@ -198,8 +198,8 @@
 
 /* takeaway callout */
 .pj-takeaway {
-    background: rgba(255, 90, 77, 0.06);
-    border: 1px solid rgba(255, 90, 77, 0.25);
+    background: rgba(34, 211, 238, 0.06);
+    border: 1px solid rgba(34, 211, 238, 0.25);
     border-radius: 12px;
     padding: 16px 18px;
     margin-bottom: 18px;
@@ -216,7 +216,7 @@
     font-weight: 600;
     color: var(--d-accent);
     text-decoration: none;
-    border: 1px solid rgba(255, 90, 77, 0.4);
+    border: 1px solid rgba(34, 211, 238, 0.4);
     border-radius: 999px;
     padding: 7px 14px;
     transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;

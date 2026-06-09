@@ -185,7 +185,7 @@ section[id] { scroll-margin-top: 84px; }
     --muted: var(--d-muted);
     --border: var(--d-border);
     --accent: var(--d-accent);
-    --accent-soft: rgba(255, 90, 77, 0.12);
+    --accent-soft: rgba(34, 211, 238, 0.12);
     background: var(--d-bg);
     color: var(--d-text);
 }
@@ -195,7 +195,7 @@ section[id] { scroll-margin-top: 84px; }
 .hp-scene-dark .hp-diagram .lbl { fill: var(--d-text); }
 .hp-scene-dark .hp-diagram .edge { stroke: var(--d-border); }
 
-.hp-diagram-ai .ai-layer { fill: rgba(255, 90, 77, 0.06); stroke: var(--d-accent); stroke-width: 1.5; }
+.hp-diagram-ai .ai-layer { fill: rgba(34, 211, 238, 0.06); stroke: var(--d-accent); stroke-width: 1.5; }
 .hp-diagram-ai .ai-lbl { fill: var(--d-accent); }
 .hp-diagram-ai .dim { fill: var(--d-surface); stroke: var(--d-border); opacity: 0.7; }
 .hp-diagram-ai .flow { stroke: var(--d-accent); stroke-dasharray: 4 4; }
@@ -339,7 +339,7 @@ section[id] { scroll-margin-top: 84px; }
     width: 460px;
     height: 460px;
     max-width: 80vw;
-    background: radial-gradient(circle, rgba(255, 90, 77, 0.12), transparent 70%);
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 70%);
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 0;
@@ -357,8 +357,8 @@ section[id] { scroll-margin-top: 84px; }
     animation: hp-glow 3.2s ease-in-out infinite;
 }
 @keyframes hp-glow {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 90, 77, 0)); }
-    50% { filter: drop-shadow(0 0 5px rgba(255, 90, 77, 0.55)); }
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(34, 211, 238, 0)); }
+    50% { filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.55)); }
 }
 
 /* ============ motion: reduced-motion ============ */
