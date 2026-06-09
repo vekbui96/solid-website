@@ -1,43 +1,29 @@
-// Design tokens — the single source of truth for the site AND Storybook.
-// Exposed as mixins so they can be applied under any selector (`.site`,
-// `.ui-theme`) without duplicating values.
+// src/ui/theme/_tokens.scss
+:root {
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --text: #0b1220;
+  --muted: #5b6577;
+  --border: #e5e8ee;
 
-@mixin design-tokens {
-  /* light / paper base (Acts I–II, Capabilities, Close) */
-  --bg: #faf7f0;
-  --surface: #efe9dc;
-  --text: #1b1714;
-  --muted: #6b6258;
-  --border: #e0d8c8;
-  --accent: #e5392f;          /* signal red — fills, rules, large headings */
-  --accent-ink: #bf2b22;      /* darker red for small text (holds AA on cream) */
-  --accent-soft: rgba(229, 57, 47, 0.10);
+  /* Cyan accent family */
+  --accent: #22d3ee;
+  --accent-ink: #0e7490; // Describes cyan
+  --accent-soft: rgba(34, 211, 238, 0.12);
 
-  /* dark scene tokens (Act III + Projects) — warm near-black, same red accent */
-  --d-bg: #17120f;
-  --d-surface: #221b16;
-  --d-text: #f4ede1;
-  --d-muted: #a59889;
-  --d-border: #352b22;
-  --d-accent: #ff5a4d;        /* brighter red for contrast on dark */
-  --d-accent-2: #f2a541;      /* warm secondary (was violet) */
+  /* Dark scene neutrals */
+  --d-bg: #0b0e14;
+  --d-surface: #121723;
+  --d-text: #e6eaf2;
+  --d-muted: #8b95a7;
+  --d-border: #222a38;
 
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: 'Space Mono', ui-monospace, monospace;
-
-  --maxw: 1120px;
+  /* Dark accents */
+  --d-accent: #22d3ee;
+  --d-accent-2: #7dd3fc;
 }
 
-// Remap the light tokens to the dark-scene values. Apply to an element that
-// already has `design-tokens` (so the `--d-*` source values exist). This is the
-// same trick the site uses for `.hp-scene-dark`.
 @mixin dark-tokens {
-  --bg: var(--d-bg);
-  --surface: var(--d-surface);
-  --text: var(--d-text);
-  --muted: var(--d-muted);
-  --border: var(--d-border);
-  --accent: var(--d-accent);
   --accent-ink: var(--d-accent);
-  --accent-soft: rgba(255, 90, 77, 0.14);
+  --accent-soft: rgba(34, 211, 238, 0.14);
 }
