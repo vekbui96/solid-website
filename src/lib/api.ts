@@ -1,9 +1,10 @@
-// Tiny client for the personal-site backend (Spring Boot on Render).
+// Tiny client for the personal-site backend (Spring Boot, self-hosted on
+// SERVER-PC and published over Tailscale Funnel).
 // Base URL is overridable at build time via VITE_API_URL; otherwise it points
 // at the deployed service. The site is static (GitHub Pages), so this value is
 // baked in at `vite build` time.
 const API_BASE: string =
-    (import.meta as any).env?.VITE_API_URL ?? "https://solid-website-api.onrender.com";
+    (import.meta as any).env?.VITE_API_URL ?? "https://server-pc.tail0e4194.ts.net";
 
 export interface ContactPayload {
     name: string;
@@ -45,10 +46,12 @@ export async function submitContact(payload: ContactPayload): Promise<ContactRes
             message: data.message ?? `Something went wrong (HTTP ${res.status}). Please try again.`,
         };
     } catch {
-        // Network error or the free-tier service waking from a cold start.
+        // Network error. The backend is a machine at home now, so the realistic
+        // causes are it being powered off or its internet being down -- not a
+        // cold start, which self-hosting removed.
         return {
             ok: false,
-            message: "Couldn't reach the server — it may be waking up. Please try again in a moment.",
+            message: "Couldn't reach the server. Please try again in a moment.",
         };
     }
 }
