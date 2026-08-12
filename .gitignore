@@ -4,3 +4,8 @@ storybook-static
 .playwright-mcp/
 *.local
 *storybook.log
+
+# Resumes are personal data — this repo is public. Baselines and tailored
+# output stay local; only the tailor-resume skill itself is committed.
+resumes/
+
