@@ -50,12 +50,13 @@ export const ProjectShowcase = () => {
         <>
             <style>{styles}</style>
 
-            <div class="pj-filters" role="group" aria-label="Filter projects by discipline">
+            <div class="pj-filters" role="tablist" aria-label="Filter projects by discipline">
                 <For each={filters}>
                     {(f) => (
                         <button
                             class="pj-filter"
-                            aria-pressed={filter() === f.id}
+                            role="tab"
+                            aria-selected={filter() === f.id}
                             classList={{ active: filter() === f.id, "pj-filter-ai": f.id === "ai" }}
                             onClick={() => setFilter(f.id)}
                         >
