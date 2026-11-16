@@ -53,13 +53,68 @@ GitHub issues in **solid-website** are the single source of truth, even for API 
 
 ## Enable, disable, run
 
-`install-task.ps1` (run once from an **elevated** PowerShell; asks for your password once) registers two
-tasks, both **disabled**:
+`install-task.ps1` (run once from an **elevated** PowerShell) registers two tasks, both **disabled**:
 
 | Task | Runs | Privileges |
 | --- | --- | --- |
-| `InnovationLoop` | daily 13:17: `run-loop.ps1` -> `claude -p` | **not elevated** (Limited) |
+| `InnovationLoop` | daily 13:17: `run-loop.ps1` -> `claude -p` | starts elevated; **run-loop drops its own rights** before anything else |
 | `innovation-loop-api` | no trigger; started by the loop to deploy or roll back the API | elevated (Highest) |
+
+Both default to an S4U logon (no stored password). `-LoopLogonType Password` / `-ApiLogonType Password`
+switch to a stored password, which is then asked for in the console.
+
+### Where the loop's non-elevation comes from
+
+Not from the task's RunLevel. `InnovationLoop` is registered RunLevel Limited, but Windows creates no UAC
+split token for a non-interactive logon (S4U or Password) of an admin account, so the task starts
+`run-loop.ps1` with a full admin token whatever the RunLevel says (measured: TokenElevation=1,
+TokenElevationType=1).
+
+So `run-loop.ps1` drops its rights itself. The outer invocation does one privileged thing, making the
+loop's clones owned by you (git rejects an Administrators-owned repo once Administrators is deny-only).
+It then re-runs itself under a reduced token and waits. That token comes from `reduced-token.ps1`: a
+UAC-style filtered copy of its own token, with Administrators and the local-admin SID deny-only, every
+privilege except SeChangeNotify removed, and Medium integrity. These are the rights of
+`runas /trustlevel:0x20000`, but with TokenElevation=0 (SAFER's own token keeps the elevation flag set).
+The lock, the clone refresh, the preflight, `claude` and everything `claude` starts run under that token.
+It is the same user, so `~\.claude`, `gh`'s `hosts.yml`, `~\.ssh` and git all still work.
+
+It **fails closed**. If the token cannot be reduced, or the reduced process still reports elevation or an
+enabled Administrators group, the run aborts and nothing runs elevated. Children are created suspended
+and checked before they start. There is no override switch.
+
+**How to verify:** every run log (`logs\run-<time>.log`) has these lines near the top:
+
+```
+runner token: TokenElevation=1 TokenElevationType=1 integrity=High Administrators=enabled. Elevated, as expected ...
+reduced inner runner pid 1234; its token: TokenElevation=0 TokenElevationType=1 integrity=Medium Administrators=deny-only
+inner runner pid 1234 token: TokenElevation=0 ...
+claude pid 5678 token: TokenElevation=0 TokenElevationType=1 integrity=Medium Administrators=deny-only; timeout 180 min
+```
+
+TokenElevationType stays 1 in the scheduled task (2 when you start it from an elevated interactive shell).
+That is the logon's type, not the token's rights. What matters is `TokenElevation=0` and
+`Administrators=deny-only`. If you see `could not run the loop with dropped rights`, the run did not happen.
+
+### Installing over SSH
+
+`install-task.ps1` opens no GUI dialogs, so it works from an SSH session. The SSH session must be elevated:
+an admin account's OpenSSH session is.
+
+```powershell
+cd D:\projects\solid-website
+powershell -NoProfile -ExecutionPolicy Bypass -File .\innovation\install-task.ps1                          # S4U, no password
+powershell -NoProfile -ExecutionPolicy Bypass -File .\innovation\install-task.ps1 -LoopLogonType Password  # asks in the console
+```
+
+With `Password`, it prompts with `Read-Host -AsSecureString` and refuses an empty password. Task Scheduler
+cannot store an empty password, so an account without one has to use S4U. The loop needs no Windows
+network credentials: GitHub goes over SSH keys and the `gh` token in `hosts.yml`. S4U is therefore enough.
+One caveat applies: an S4U logon cannot decrypt DPAPI-protected secrets such as Credential Manager entries.
+If a tool ever moves its credentials there (for example `gh auth login` without `--insecure-storage`),
+switch to `-LoopLogonType Password`.
+
+### The API task
 
 The loop session itself never runs elevated. When it needs to deploy or roll back the API it calls
 `api-request.ps1`, which writes a small request file (mode, issue, sha, time, nonce: data only) to
@@ -75,7 +130,8 @@ Enable-ScheduledTask  -TaskName InnovationLoop; Enable-ScheduledTask -TaskName i
 Disable-ScheduledTask -TaskName InnovationLoop       # stops the daily run (the API task has no trigger)
 Start-ScheduledTask   -TaskName InnovationLoop       # run once now
 
-# by hand, from a normal (non-elevated) PowerShell:
+# by hand, from a normal or an elevated PowerShell (either way run-loop drops to the reduced token;
+# only an elevated one can hand Administrators-owned clones to you, which a non-elevated run then needs):
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\run-loop.ps1 -ProposeOnly   # first supervised run
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\run-loop.ps1 -DryRun        # everything except the claude call
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\api-request.ps1 -Mode noop  # checks the elevated task answers
@@ -135,8 +191,9 @@ changed). `api-request.ps1` adds `5`: no result in time (the API task is disable
 
 ## Safety, in short
 
-- The loop session is **not elevated**. Only the fixed, argument-less `innovation-loop-api` task is, and it
-  only acts on a validated request (see above).
+- The loop session is **not elevated**: `run-loop.ps1` drops rights before starting it and fails closed
+  (see "Where the loop's non-elevation comes from"). Only the fixed, argument-less `innovation-loop-api`
+  task is elevated, and it only acts on a validated request (see above).
 - It runs with `--permission-mode dontAsk` and an explicit allowlist: anything not listed is denied, since
   nobody is there to approve a prompt.
 - A `guard.mjs` hook checks every tool call:

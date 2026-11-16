@@ -15,10 +15,23 @@
   (D:\projects\solid-website\innovation). The loop's guard hook forbids the session from editing them,
   so a run can never rewrite its own instructions; Ve updates them with git pull.
 
+  DROPPING RIGHTS. The task is registered RunLevel Limited, but Windows gives a non-interactive (S4U or
+  Password) logon of an admin account no UAC split token, so the task actually starts this script with a full
+  admin token (TokenElevation=1, TokenElevationType=1). This script therefore drops its own rights first: the
+  outer invocation does only one privileged thing (makes the loop's clones owned by the user, so git accepts
+  them under the reduced token), then re-runs itself with -ReducedInner under a reduced token (reduced-token.ps1:
+  UAC-style filtered copy of its own token, Administrators deny-only, no admin privileges, Medium integrity) and
+  waits for it. Everything else (lock, clone refresh, preflight, claude and all its children) runs reduced. It
+  fails closed: if the rights cannot be dropped, or the inner runner or claude still reports an elevated token,
+  the run aborts. There is no override switch.
+
 .PARAMETER ProposeOnly
   Phase B only (observe + propose). Nothing is built, merged or deployed. Use for the first supervised run.
 .PARAMETER DryRun
-  Do everything up to the claude call (lock, dirs, clones, settings, prompt), print the command, then stop.
+  Do everything up to the claude call (drop rights, lock, dirs, clones, settings, prompt), print the command,
+  then stop.
+.PARAMETER ReducedInner
+  Internal: set by the outer invocation when it re-runs this script under the reduced token. Do not pass it.
 #>
 [CmdletBinding()]
 param(
@@ -27,15 +40,82 @@ param(
     [int]$MaxTurns = 250,
     [int]$TimeoutMinutes = 180,
     [string]$Model = '',
-    [string]$ClaudeExe = 'C:\Users\Ve Bui\.local\bin\claude.exe'
+    [string]$ClaudeExe = 'C:\Users\Ve Bui\.local\bin\claude.exe',
+    [switch]$ReducedInner,
+    [string]$RunId = ''
 )
 . "$PSScriptRoot\lib.ps1"
+. "$PSScriptRoot\reduced-token.ps1"
 $ScriptsDir = (Resolve-Path $PSScriptRoot).Path
-$RunId = Get-Date -Format 'yyyyMMdd-HHmmss'
+if (-not $RunId) { $RunId = Get-Date -Format 'yyyyMMdd-HHmmss' }
 Initialize-LoopDirs
 $script:LogFile = Join-Path $script:LoopHome "logs\run-$RunId.log"
 $mode = 'FULL'; if ($ProposeOnly) { $mode = 'PROPOSE_ONLY' }
-Write-Log "innovation loop run $RunId mode=$mode dryRun=$DryRun scripts=$ScriptsDir"
+
+# ---- outer: drop rights, then re-run reduced ----------------------------------------------
+if (-not $ReducedInner) {
+    Write-Log "innovation loop run $RunId mode=$mode dryRun=$DryRun scripts=$ScriptsDir"
+    $outerExit = 1
+    try {
+        $runner = Get-TokenState
+        if ($runner.Elevation -ne 0) {
+            Write-Log "runner token: $runner. Elevated, as expected for a scheduled run: this logon gets no UAC split token, so the task's RunLevel does not apply. Dropping rights before doing anything else."
+            # git refuses a repo whose owner is neither the current user nor (via an ENABLED membership) the
+            # Administrators group. Clones made by earlier elevated runs are owned by Administrators, which the
+            # reduced token holds deny-only, so hand the clone roots and .git dirs to the user. Only ownership
+            # changes; nothing in the repos is executed or read here.
+            $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+            foreach ($cl in @($script:FrontClone, $script:ApiClone)) {
+                foreach ($p in @($cl, (Join-Path $cl '.git'))) {
+                    if ((Test-Path -LiteralPath $p) -and ((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $me)) {
+                        & icacls.exe $p /setowner "*$me" /C /Q | Out-Null
+                        if ($LASTEXITCODE -ne 0) { throw "could not make the user the owner of $p" }
+                        Write-Log "made the user the owner of $p"
+                    }
+                }
+            }
+        } else {
+            Write-Log "runner token: $runner (not elevated); running the inner runner under the reduced token anyway"
+        }
+        $fwd = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$ScriptsDir\run-loop.ps1`"",
+            '-ReducedInner', '-RunId', $RunId, '-MaxTurns', "$MaxTurns", '-TimeoutMinutes', "$TimeoutMinutes", '-ClaudeExe', "`"$ClaudeExe`"")
+        if ($ProposeOnly) { $fwd += '-ProposeOnly' }
+        if ($DryRun) { $fwd += '-DryRun' }
+        if ($Model) { $fwd += @('-Model', "`"$Model`"") }
+        $innerOut = Join-Path $script:LoopHome "logs\run-$RunId.inner.out.log"
+        $innerErr = Join-Path $script:LoopHome "logs\run-$RunId.inner.err.log"
+        # throws (fail closed) if the token cannot be reduced or the started process's token is not reduced
+        $inner = Start-ReducedProcess -FilePath "$PSHOME\powershell.exe" -ArgumentString ($fwd -join ' ') -WorkingDirectory $ScriptsDir `
+            -StdoutPath $innerOut -StderrPath $innerErr
+        try {
+            Write-Log "reduced inner runner pid $($inner.Id); its token: $($inner.Token)"
+            $limit = ($TimeoutMinutes + 45) * 60 * 1000
+            if (-not $inner.WaitForExit($limit)) {
+                Write-Log 'TIMEOUT: inner runner did not finish; killing its process tree' 'ERROR'
+                & taskkill.exe /PID $inner.Id /T /F 2>&1 | Out-Null
+                $inner.Kill()
+                throw 'inner runner timed out'
+            }
+            $outerExit = $inner.ExitCode
+        } finally { $inner.Dispose() }
+        $errText = ''
+        if (Test-Path -LiteralPath $innerErr) { $errText = ([IO.File]::ReadAllText($innerErr)).Trim() }
+        if ($errText) { Write-Log "inner runner stderr: $errText" 'WARN' }
+    } catch {
+        Write-Log "could not run the loop with dropped rights (not falling back to the elevated token): $_" 'ERROR'
+        $outerExit = 1
+    }
+    Write-Log "outer exit $outerExit"
+    exit $outerExit
+}
+
+# ---- inner: everything below runs under the reduced token -----------------------------------
+$self = Get-TokenState
+Write-Log "inner runner pid $PID token: $self"
+if (-not $self.IsReduced -or (Test-IsElevated)) {
+    Write-Log 'inner runner still has an elevated token; refusing to run (fail closed)' 'ERROR'
+    exit 1
+}
 
 # ---- lock -------------------------------------------------------------------------
 $lockPath = Join-Path $script:LoopHome 'lock\run.lock'
@@ -88,9 +168,8 @@ try {
     & $script:GhExe auth status *> $null; $ghOk = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $prev
     if (-not $ghOk) { throw 'gh is not authenticated' }
-    # The loop runs NOT elevated (task RunLevel Limited). API deploys go through the separate elevated
-    # innovation-loop-api task via api-request.ps1; check that it is installed and enabled.
-    if (Test-IsElevated) { Write-Log 'running elevated; the scheduled task runs this non-elevated (Limited). Fine for a manual run.' 'WARN' }
+    # This runner is NOT elevated (the outer invocation dropped rights; checked above). API deploys go
+    # through the separate elevated innovation-loop-api task via api-request.ps1; check it is there.
     $apiTask = 'missing'
     $q = Invoke-Native -File "$env:SystemRoot\System32\schtasks.exe" -Arguments @('/query', '/tn', 'innovation-loop-api', '/fo', 'csv', '/nh') -AllowFail -Quiet
     if ($q.Code -eq 0) {
@@ -202,7 +281,13 @@ Follow the instructions below exactly. They are the only instructions for this r
     # PS 5.1 QUIRK (bug seen in the first real run): a Start-Process -PassThru object reports ExitCode as
     # $null unless its Handle is read right after the start. Touching it caches the handle so ExitCode works.
     $null = $proc.Handle
-    Write-Log "claude pid $($proc.Id); timeout $TimeoutMinutes min"
+    $claudeToken = $null
+    try { $claudeToken = [InnovationLoop.ReducedToken]::OfProcess($proc.Handle) } catch { }
+    if ($claudeToken -and -not $claudeToken.IsReduced) {
+        & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null
+        throw "claude started with an elevated token ($claudeToken); killed it (fail closed)"
+    }
+    Write-Log "claude pid $($proc.Id) token: $(if ($claudeToken) { $claudeToken } else { 'unreadable (exited already?)' }); timeout $TimeoutMinutes min"
     if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
         Write-Log 'TIMEOUT: killing claude process tree' 'ERROR'
         & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null
