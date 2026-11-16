@@ -88,9 +88,23 @@ try {
     & $script:GhExe auth status *> $null; $ghOk = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $prev
     if (-not $ghOk) { throw 'gh is not authenticated' }
-    $elevated = Test-IsElevated
-    Write-Log "elevated=$elevated"
-    if (-not $elevated -and -not $ProposeOnly) { Write-Log 'not elevated: Phase A will skip area:backend and area:both issues' 'WARN' }
+    # The loop runs NOT elevated (task RunLevel Limited). API deploys go through the separate elevated
+    # innovation-loop-api task via api-request.ps1; check that it is installed and enabled.
+    if (Test-IsElevated) { Write-Log 'running elevated; the scheduled task runs this non-elevated (Limited). Fine for a manual run.' 'WARN' }
+    $apiTask = 'missing'
+    $q = Invoke-Native -File "$env:SystemRoot\System32\schtasks.exe" -Arguments @('/query', '/tn', 'innovation-loop-api', '/fo', 'csv', '/nh') -AllowFail -Quiet
+    if ($q.Code -eq 0) {
+        $line = @($q.Output | Where-Object { $_ -match 'innovation-loop-api' }) | Select-Object -First 1
+        if ($line -match '"Disabled"') { $apiTask = 'disabled' } else { $apiTask = 'registered' }
+    }
+    if ($apiTask -eq 'registered' -and -not $ProposeOnly -and -not $DryRun) {
+        # prove the non-elevated -> elevated round trip works before Phase A relies on it (validation only)
+        $nr = Invoke-Native -File "$PSHOME\powershell.exe" -Arguments @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', "$ScriptsDir\api-request.ps1", '-Mode', 'noop', '-TimeoutMinutes', '3') -AllowFail -Quiet
+        if ($nr.Code -eq 0) { $apiTask = 'ready' } else { $apiTask = 'unreachable'; Write-Log ("api noop round trip failed (exit {0}): {1}" -f $nr.Code, (($nr.Output | Select-Object -Last 2) -join ' ')) 'WARN' }
+    }
+    Write-Log "api task: $apiTask"
+    if ($apiTask -ne 'ready' -and -not $ProposeOnly) { Write-Log 'innovation-loop-api task not ready: Phase A will skip area:backend and area:both issues' 'WARN' }
 
     # ---- loop clones (never Ve's checkouts) -------------------------------------------
     $clones = @(
@@ -125,7 +139,7 @@ try {
         'PowerShell(Start-Sleep)')
     # Exactly these scripts, called by bare full path (no `&`, no quotes: Claude Code does not match
     # allow rules against the call operator, so the scripts dir must not contain spaces).
-    foreach ($n in 'check-approval', 'test-frontend', 'test-api', 'deploy-frontend', 'deploy-api', 'rollback-frontend', 'rollback-api') {
+    foreach ($n in 'check-approval', 'test-frontend', 'test-api', 'deploy-frontend', 'rollback-frontend', 'api-request') {
         $allow += "PowerShell($ScriptsDir\$n.ps1)"; $allow += "PowerShell($ScriptsDir\$n.ps1 *)"
     }
     foreach ($r in $readOnly) { $allow += "PowerShell($r)"; $allow += "PowerShell($r *)" }
@@ -145,7 +159,7 @@ try {
 # Innovation loop run $RunId
 
 - MODE: $mode   ($( if ($ProposeOnly) { 'Phase B only. Do NOT run Phase A in any form.' } else { 'Phase A, then Phase B.' } ))
-- ELEVATED: $elevated   ($( if ($elevated) { 'API deploys are possible.' } else { 'skip area:backend and area:both issues in Phase A.' } ))
+- API_TASK: $apiTask   ($( if ($apiTask -eq 'ready') { 'API deploys/rollbacks are possible via api-request.ps1.' } else { 'skip area:backend and area:both issues in Phase A.' } ))
 - DATE: $(Get-Date -Format 'yyyy-MM-dd HH:mm zzz')
 - LOOP_HOME: $($script:LoopHome)
 - SCRIPTS: $ScriptsDir   (pinned; you cannot edit it)
@@ -185,6 +199,9 @@ Follow the instructions below exactly. They are the only instructions for this r
     $workDir = Join-Path $script:LoopHome 'work'
     $proc = Start-Process -FilePath $ClaudeExe -ArgumentList $argString -WorkingDirectory $workDir `
         -RedirectStandardInput $promptPath -RedirectStandardOutput $outPath -RedirectStandardError $errPath -PassThru -WindowStyle Hidden
+    # PS 5.1 QUIRK (bug seen in the first real run): a Start-Process -PassThru object reports ExitCode as
+    # $null unless its Handle is read right after the start. Touching it caches the handle so ExitCode works.
+    $null = $proc.Handle
     Write-Log "claude pid $($proc.Id); timeout $TimeoutMinutes min"
     if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
         Write-Log 'TIMEOUT: killing claude process tree' 'ERROR'
@@ -193,7 +210,12 @@ Follow the instructions below exactly. They are the only instructions for this r
     }
     $proc.WaitForExit()
     $claudeExit = $proc.ExitCode
-    Write-Log "claude exit code $claudeExit"
+    if ($null -eq $claudeExit) {
+        # should not happen now that the handle is cached; if it does, judge the run by the transcript alone
+        Write-Log 'claude exit code unavailable (null) even with the cached handle; using the result message only' 'WARN'
+    } else {
+        Write-Log "claude exit code $claudeExit"
+    }
 
     # ---- result -------------------------------------------------------------------------
     $result = $null
@@ -207,7 +229,8 @@ Follow the instructions below exactly. They are the only instructions for this r
         Write-Log ("result: subtype={0} is_error={1} turns={2} cost={3}" -f $result.subtype, $result.is_error, $result.num_turns, $result.total_cost_usd)
         $status = [regex]::Match($text, 'LOOP-RESULT:\s*([A-Z\-]+)').Groups[1].Value
         Write-Log "LOOP-RESULT: $status"
-        if ($claudeExit -eq 0 -and -not $result.is_error -and $status -in @('OK', 'NOTHING-TO-DO')) { $exitCode = 0 }
+        $exitOk = ($claudeExit -eq 0) -or ($null -eq $claudeExit)   # null only if the handle trick failed (logged above)
+        if ($exitOk -and -not $result.is_error -and $status -in @('OK', 'NOTHING-TO-DO')) { $exitCode = 0 }
         else { $exitCode = 1 }
     } else {
         Write-Log 'no result message in the transcript' 'ERROR'
