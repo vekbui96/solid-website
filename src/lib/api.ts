@@ -21,12 +21,18 @@ export interface ContactResult {
     fieldErrors?: Record<string, string>;
 }
 
+/** fetch has no default timeout; a hung upstream would leave "Sending…" up forever. */
+const REQUEST_TIMEOUT_MS = 15000;
+
 export async function submitContact(payload: ContactPayload): Promise<ContactResult> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
         const res = await fetch(`${API_BASE}/api/contact`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+            signal: controller.signal,
         });
 
         const data = await res.json().catch(() => ({} as any));
@@ -46,6 +52,12 @@ export async function submitContact(payload: ContactPayload): Promise<ContactRes
             message: data.message ?? `Something went wrong (HTTP ${res.status}). Please try again.`,
         };
     } catch {
+        if (controller.signal.aborted) {
+            return {
+                ok: false,
+                message: "The server didn't respond. Please try again, or email me directly.",
+            };
+        }
         // Network error. The backend is a machine at home now, so the realistic
         // causes are it being powered off or its internet being down -- not a
         // cold start, which self-hosting removed.
@@ -53,5 +65,7 @@ export async function submitContact(payload: ContactPayload): Promise<ContactRes
             ok: false,
             message: "Couldn't reach the server. Please try again in a moment.",
         };
+    } finally {
+        clearTimeout(timer);
     }
 }
