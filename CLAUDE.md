@@ -60,6 +60,16 @@ variable here for the same reason.
 than a manual `yarn deploy`. There is no workflow file in the repo, and the
 `gh-pages` branch is the only evidence of a deploy.
 
+## Innovation loop (`innovation/`)
+
+`innovation/` holds an unattended daily job on server-pc that proposes small improvements as GitHub
+issues (`loop:proposal`) and, once Ve adds `approved`, builds, deploys and verifies them itself. See
+`innovation/README.md`; the session's instructions are `innovation/LOOP.md`.
+
+**It is only for the loop's own ideas.** Ve's direct requests ("change X on my site") are still handled
+end to end by the site agents and deployed without asking, exactly as before: no issue or label is
+needed, and manual work must not be routed through the loop.
+
 ## Architecture
 
 ### The whole site is one custom element, and that means Shadow DOM
