@@ -99,6 +99,16 @@ privilege except SeChangeNotify removed, and Medium integrity. These are the rig
 The lock, the clone refresh, the preflight, `claude` and everything `claude` starts run under that token.
 It is the same user, so `~\.claude`, `gh`'s `hosts.yml`, `~\.ssh` and git all still work.
 
+Repos left behind by earlier elevated runs are owned by Administrators, and git refuses them under this token
+("dubious ownership"). One example is gh-pages' publish clone in `clones\solid-website\node_modules\.cache\gh-pages\`,
+which broke the deploy in run 20261116-140147 with "Failed to get remote.origin.url". So `lib.ps1` gives
+every script, and every git process the script starts (including git run by yarn, node or gh-pages),
+`safe.directory` entries through the `GIT_CONFIG_COUNT` environment variables. The entries cover the two clones,
+`node_modules\.cache\gh-pages\*` and `work\*`. There is no global `*`, and no git config file is changed.
+The `dir/*` form needs git 2.46 or later; this machine has 2.55. In addition, `deploy-frontend.ps1` passes
+`--repo` to gh-pages explicitly, and removes the gh-pages cache if git still cannot use it (gh-pages
+then clones it again).
+
 It **fails closed**. If the token cannot be reduced, or the reduced process still reports elevation or an
 enabled Administrators group, the run aborts and nothing runs elevated. Children are created suspended
 and checked before they start. There is no override switch.

@@ -202,8 +202,8 @@ try {
 
     # ---- loop clones (never Ve's checkouts) -------------------------------------------
     $clones = @(
-        @{ Path = $script:FrontClone; Url = 'git@github-solid-website:vekbui96/solid-website.git' },
-        @{ Path = $script:ApiClone;   Url = 'git@github-solid-website-api:vekbui96/solid-website-api.git' }
+        @{ Path = $script:FrontClone; Url = $script:FrontRepoUrl },
+        @{ Path = $script:ApiClone;   Url = $script:ApiRepoUrl }
     )
     foreach ($cl in $clones) {
         if (-not (Test-Path -LiteralPath (Join-Path $cl.Path '.git'))) {

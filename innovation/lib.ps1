@@ -14,12 +14,45 @@ $script:FrontRepo     = 'vekbui96/solid-website'
 $script:ApiRepo       = 'vekbui96/solid-website-api'
 $script:FrontClone    = Join-Path $script:LoopHome 'clones\solid-website'
 $script:ApiClone      = Join-Path $script:LoopHome 'clones\solid-website-api'
+$script:FrontRepoUrl  = 'git@github-solid-website:vekbui96/solid-website.git'
+$script:ApiRepoUrl    = 'git@github-solid-website-api:vekbui96/solid-website-api.git'
+$script:GhPagesCache  = Join-Path $script:FrontClone 'node_modules\.cache\gh-pages'
 $script:SiteUrl       = 'https://vekbui96.github.io/solid-website/'
 $script:ApiLocal      = 'http://localhost:8080'
 $script:ApiFunnel     = 'https://server-pc.tail0e4194.ts.net'
 $script:ApiServiceName = 'solid-website-api'
 $script:ApiServiceDir = 'D:\services\solid-website-api'
 $script:ApiJarRel     = 'target\personal-site-api-0.0.1-SNAPSHOT.jar'   # hardcoded in the NSSM service; never change pom artifactId/version
+
+# ---- git safe.directory for every git child --------------------------------
+# The loop runs under a reduced token (run-loop.ps1) in which Administrators is deny-only. Earlier elevated
+# runs left repos owned by BUILTIN\Administrators, and git refuses those ("dubious ownership"). run-loop's
+# elevated outer step hands the two clone roots to the user, but the scripts touch more repos than that:
+# gh-pages publishes from its own clone in node_modules\.cache\gh-pages\<repo>, where git failed inside
+# gh-pages with "Failed to get remote.origin.url" (run 20261116-140147, deploy exit 4).
+# So every process that dot-sources this file puts safe.directory entries in its environment
+# (GIT_CONFIG_COUNT / GIT_CONFIG_KEY_n / GIT_CONFIG_VALUE_n; git treats these as command-line config, a scope
+# safe.directory is honoured from). Every child inherits them: git started directly, and git started by
+# yarn / node / gh-pages. Exact paths plus two "dir/*" prefixes (gh-pages' cache, the work dir's worktrees);
+# never a global "*", and no git config file is changed. Idempotent: entries already present are not re-added.
+function Set-GitSafeDirectories {
+    $want = @($script:FrontClone, $script:ApiClone, (Join-Path $script:GhPagesCache '*'), (Join-Path $script:LoopHome 'work\*')) |
+        ForEach-Object { $_ -replace '\\', '/' }
+    $n = 0
+    if ("$env:GIT_CONFIG_COUNT" -match '^\d+$') { $n = [int]$env:GIT_CONFIG_COUNT }
+    $have = @()
+    for ($i = 0; $i -lt $n; $i++) {
+        if ([Environment]::GetEnvironmentVariable("GIT_CONFIG_KEY_$i") -eq 'safe.directory') { $have += [Environment]::GetEnvironmentVariable("GIT_CONFIG_VALUE_$i") }
+    }
+    foreach ($v in $want) {
+        if ($have -contains $v) { continue }
+        [Environment]::SetEnvironmentVariable("GIT_CONFIG_KEY_$n", 'safe.directory')
+        [Environment]::SetEnvironmentVariable("GIT_CONFIG_VALUE_$n", $v)
+        $n++
+    }
+    $env:GIT_CONFIG_COUNT = "$n"
+}
+Set-GitSafeDirectories
 
 # Exit codes shared by deploy/rollback scripts
 $script:EXIT_OK              = 0
