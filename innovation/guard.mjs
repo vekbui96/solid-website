@@ -102,6 +102,12 @@ if (tool === 'Bash' || tool === 'PowerShell') {
     block('gh repo admin / secrets / auth / gist commands are not allowed');
   }
   if (/(-X|--method)\s*["']?(DELETE|PUT)\b/i.test(c)) block('gh api DELETE/PUT is not allowed');
+  // Comments are never edited by the session: the one comment the loop edits (its own "## Progress"
+  // checklist, marker-checked on this repo and issue) is edited only by progress.ps1.
+  if (/(-X|--method)\s*["']?PATCH\b/i.test(c) || /\bgh(\.exe)?["']?\s+api\b[^|;&]*\bcomments\/\d+/i.test(c) && /\s(-f|-F|--field|--raw-field|--input)\s/i.test(c)) {
+    block('the session never edits comments (gh api PATCH); progress updates go through progress.ps1');
+  }
+  if (/\bgh(\.exe)?["']?\s+(issue|pr)\s+comment\b[^|;&]*--(edit|delete)-last\b/i.test(c)) block('the session never edits or deletes comments; progress updates go through progress.ps1');
   if (/--add-label[^|;&]*\bapproved\b/i.test(c) || /labels[^|;&]*\bapproved\b/i.test(c) && /\b(-X|--method|-f|-F|--field|--raw-field)\b/i.test(c)) {
     block('only Ve adds the approved label');
   }
@@ -138,7 +144,7 @@ if (tool === 'Bash' || tool === 'PowerShell') {
     for (const s of ps1) {
       const f = norm(s);
       if (!SCRIPTS || !f.startsWith(SCRIPTS + '\\')) block(`scripts must be called by bare full path from the pinned scripts dir: ${SCRIPTS}\\<name>.ps1 (saw ${s})`);
-      if (/(run-loop|install-task|lib|reduced-token)\.ps1$/.test(f)) block('the loop may not start itself, install tasks, or run lib.ps1 / reduced-token.ps1');
+      if (/(run-loop|install-task|lib|reduced-token|reporting|test-reporting)\.ps1$/.test(f)) block('the loop may not start itself, install tasks, or run lib.ps1 / reduced-token.ps1 / reporting.ps1');
       // the elevated side is reached only through api-request.ps1 (request file + fixed scheduled task)
       if (/(api-runner|deploy-api|rollback-api)\.ps1$/.test(f)) block('API deploys/rollbacks go through api-request.ps1 only');
     }
