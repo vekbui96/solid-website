@@ -20,9 +20,29 @@ Once a day the `InnovationLoop` scheduled task runs `run-loop.ps1`, which starts
    event history by `check-approval.ps1`). It posts a plan as a comment, builds on a
    `loop/<issue>-<slug>` branch, tests, opens and merges a PR, deploys with the scripts here, and
    verifies the live result. Success: `loop:deployed`, issue closed. Failure: automatic rollback,
-   `loop:failed`, details in a comment, issue left open. At most one issue per run.
+   `loop:failed`, details in a comment, issue left open. Up to **2 issues per run** (`run-loop.ps1
+   -MaxBuilds <n>`, 1-5), strictly one after the other, each with its own full cycle. A second one is
+   started only if the first ended `loop:deployed` (never after a failure or rollback), the run is still
+   inside the first half of its time budget (`-NextBuildCutoffPercent`, default 50% of the 180-minute
+   claude timeout, which leaves room for a worst-case build with rollback plus Phase B), and, for
+   API work, the elevated API task still answers.
 2. **Phase B (propose).** If fewer than 5 proposals are open, it looks over both repos and the live
-   site and opens up to 3 new `loop:proposal` issues (never more than 5 open).
+   site and opens up to 3 new `loop:proposal` issues (never more than 5 open), weighted toward
+   [`FOCUS.md`](FOCUS.md).
+
+## Steering it: FOCUS.md
+
+**Edit [`FOCUS.md`](FOCUS.md) to steer the loop.** It lists your priorities (highest first) and things to
+avoid. Phase B reads it first, prefers ideas in those priorities, treats the avoid list as off-limits,
+and names the priority each proposal serves. It only steers proposals: it never overrides `LOOP.md`'s
+hard rules, never builds anything by itself, and is not approval or content sign-off.
+
+- The run reads it from this checkout (`D:\projects\solid-website\innovation\FOCUS.md`), so an edit takes
+  effect on the next run. Commit it so the laptop copy agrees.
+- The loop cannot change it: the guard blocks every write under `innovation/`, and `LOOP.md` forbids
+  proposing changes to it.
+- Missing, or nothing left but headings and `<!-- comments -->`: the loop proposes from its own judgment,
+  as before. The run log says which (`focus file: present|none`).
 
 GitHub issues in **solid-website** are the single source of truth, even for API work.
 
@@ -134,6 +154,8 @@ Start-ScheduledTask   -TaskName InnovationLoop       # run once now
 # only an elevated one can hand Administrators-owned clones to you, which a non-elevated run then needs):
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\run-loop.ps1 -ProposeOnly   # first supervised run
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\run-loop.ps1 -DryRun        # everything except the claude call
+powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\run-loop.ps1 -MaxBuilds 1   # one build this run
+# (the daily task passes no arguments, so it uses the param defaults in run-loop.ps1: MaxBuilds 2, cutoff 50%)
 powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\api-request.ps1 -Mode noop  # checks the elevated task answers
 ```
 

@@ -30,6 +30,18 @@
 .PARAMETER DryRun
   Do everything up to the claude call (drop rights, lock, dirs, clones, settings, prompt), print the command,
   then stop.
+.PARAMETER MaxBuilds
+  Most approved issues Phase A may build in one run (default 2, range 1-5). They are built strictly one after
+  another, each through the full plan/build/test/PR/merge/deploy/verify cycle. Another one is started only after
+  the previous one ended loop:deployed (never after a failure or rollback) and before the cutoff below.
+.PARAMETER NextBuildCutoffPercent
+  Phase A starts another build only while less than this share of -TimeoutMinutes has passed (default 50).
+  Why 50: a worst-case front-end cycle (two test-frontend runs at their 10-minute tool limit, a deploy that
+  waits out the Pages-build and served-bytes checks and then rolls back) is about an hour, and Phase B needs
+  ~15 minutes after it. With the default 180-minute timeout, 50% leaves 90 minutes, so a build started just
+  before the cutoff still finishes, rollback included, before claude is killed (killing it mid-deploy is the
+  thing to avoid). Real runs so far took ~7 minutes per build, so the cutoff only bites when a run is already
+  unusually slow.
 .PARAMETER ReducedInner
   Internal: set by the outer invocation when it re-runs this script under the reduced token. Do not pass it.
 #>
@@ -41,6 +53,8 @@ param(
     [int]$TimeoutMinutes = 180,
     [string]$Model = '',
     [string]$ClaudeExe = 'C:\Users\Ve Bui\.local\bin\claude.exe',
+    [ValidateRange(1, 5)][int]$MaxBuilds = 2,
+    [ValidateRange(10, 90)][int]$NextBuildCutoffPercent = 50,
     [switch]$ReducedInner,
     [string]$RunId = ''
 )
@@ -78,7 +92,8 @@ if (-not $ReducedInner) {
             Write-Log "runner token: $runner (not elevated); running the inner runner under the reduced token anyway"
         }
         $fwd = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$ScriptsDir\run-loop.ps1`"",
-            '-ReducedInner', '-RunId', $RunId, '-MaxTurns', "$MaxTurns", '-TimeoutMinutes', "$TimeoutMinutes", '-ClaudeExe', "`"$ClaudeExe`"")
+            '-ReducedInner', '-RunId', $RunId, '-MaxTurns', "$MaxTurns", '-TimeoutMinutes', "$TimeoutMinutes", '-ClaudeExe', "`"$ClaudeExe`"",
+            '-MaxBuilds', "$MaxBuilds", '-NextBuildCutoffPercent', "$NextBuildCutoffPercent")
         if ($ProposeOnly) { $fwd += '-ProposeOnly' }
         if ($DryRun) { $fwd += '-DryRun' }
         if ($Model) { $fwd += @('-Model', "`"$Model`"") }
@@ -234,12 +249,34 @@ try {
 
     # ---- prompt -------------------------------------------------------------------------
     $loopMd = [IO.File]::ReadAllText((Join-Path $ScriptsDir 'LOOP.md'))
+    # FOCUS.md is Ve's steering file for Phase B, read from the pinned scripts dir like LOOP.md (the guard blocks
+    # the session from writing anything under innovation/). It counts as empty when nothing but whitespace, HTML
+    # comments and markdown headings is left; then the header says there is none and the session behaves as before.
+    $focusPath = Join-Path $ScriptsDir 'FOCUS.md'
+    $focusState = 'none'
+    if (Test-Path -LiteralPath $focusPath) {
+        $ft = [IO.File]::ReadAllText($focusPath)
+        $ft = [regex]::Replace($ft, '(?s)<!--.*?-->', '')
+        $ft = [regex]::Replace($ft, '(?m)^[ \t]*#.*$', '')
+        if ($ft.Trim()) { $focusState = 'present' }
+    }
+    $focusNote = 'none (propose from your own judgment; section 5)'
+    if ($focusState -eq 'present') { $focusNote = "$focusPath   (Ve's steering file: read it first in Phase B; read-only)" }
+    $runStart = Get-Date
+    $cutoff = $runStart.AddMinutes([math]::Floor($TimeoutMinutes * $NextBuildCutoffPercent / 100))
+    $buildsNote = "Phase A builds at most $MaxBuilds approved issue(s), strictly one at a time; see section 3, step 13"
+    if ($ProposeOnly) { $buildsNote = 'unused: PROPOSE_ONLY' }
+    Write-Log "focus file: $focusState ($focusPath); max builds $MaxBuilds; next-build cutoff $($cutoff.ToString('HH:mm')) ($NextBuildCutoffPercent% of $TimeoutMinutes min)"
     $header = @"
 # Innovation loop run $RunId
 
 - MODE: $mode   ($( if ($ProposeOnly) { 'Phase B only. Do NOT run Phase A in any form.' } else { 'Phase A, then Phase B.' } ))
 - API_TASK: $apiTask   ($( if ($apiTask -eq 'ready') { 'API deploys/rollbacks are possible via api-request.ps1.' } else { 'skip area:backend and area:both issues in Phase A.' } ))
-- DATE: $(Get-Date -Format 'yyyy-MM-dd HH:mm zzz')
+- MAX_BUILDS: $MaxBuilds   ($buildsNote)
+- DATE: $($runStart.ToString('yyyy-MM-dd HH:mm zzz'))   (run start; claude is killed $TimeoutMinutes minutes after it, at $($runStart.AddMinutes($TimeoutMinutes).ToString('HH:mm')))
+- NEXT_BUILD_CUTOFF: $($cutoff.ToString('yyyy-MM-dd HH:mm zzz'))   (never START another Phase A build at or after this local time; check with Get-Date)
+- MAX_TURNS: $MaxTurns
+- FOCUS: $focusNote
 - LOOP_HOME: $($script:LoopHome)
 - SCRIPTS: $ScriptsDir   (pinned; you cannot edit it)
 - FRONT_CLONE: $($script:FrontClone)   (vekbui96/solid-website, reset to origin/main)
