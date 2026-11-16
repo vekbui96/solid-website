@@ -64,7 +64,7 @@ if (['Read', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Glob', 'Grep'].inclu
     if (!n.startsWith(HOME + '\\')) block(`writes are only allowed under ${HOME} (the loop clones, work and artifacts dirs)`);
     if (/\\innovation\\/.test(n)) block('the loop may not modify innovation/ (its own instructions and scripts)');
     if (/\\\.claude\\|\\\.github\\/.test(n)) block('the loop may not modify .claude/ or .github/');
-    if (n.startsWith(HOME + '\\state\\') || n.startsWith(HOME + '\\lock\\') || n.startsWith(HOME + '\\api-backups\\') || n.startsWith(HOME + '\\logs\\')) {
+    if (n.startsWith(HOME + '\\state\\') || n.startsWith(HOME + '\\lock\\') || n.startsWith(HOME + '\\api-backups\\') || n.startsWith(HOME + '\\logs\\') || n.startsWith(HOME + '\\api-queue\\')) {
       block('state, lock, backups and logs are managed by the scripts, not by hand');
     }
   }
@@ -139,6 +139,8 @@ if (tool === 'Bash' || tool === 'PowerShell') {
       const f = norm(s);
       if (!SCRIPTS || !f.startsWith(SCRIPTS + '\\')) block(`scripts must be called by bare full path from the pinned scripts dir: ${SCRIPTS}\\<name>.ps1 (saw ${s})`);
       if (/(run-loop|install-task|lib)\.ps1$/.test(f)) block('the loop may not start itself, install tasks, or run lib.ps1');
+      // the elevated side is reached only through api-request.ps1 (request file + fixed scheduled task)
+      if (/(api-runner|deploy-api|rollback-api)\.ps1$/.test(f)) block('API deploys/rollbacks go through api-request.ps1 only');
     }
   }
   if (/\b(powershell|pwsh)(\.exe)?\b/i.test(c)) block('no nested PowerShell; call scripts by bare full path: <scripts dir>\\<name>.ps1 <args>');
