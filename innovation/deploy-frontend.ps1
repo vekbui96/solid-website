@@ -6,7 +6,8 @@
   Runs in the loop's own clone (never in D:\projects\solid-website, which holds Ve's uncommitted work).
   1. clone must be clean and at origin/main
   2. record the current origin/gh-pages sha and live asset (state\frontend-last-deploy.json)
-  3. yarn install --frozen-lockfile; yarn deploy   (build:all + gh-pages push)
+  3. yarn install --frozen-lockfile; yarn deploy --repo <origin>   (build:all + gh-pages push; git children get
+     safe.directory entries from lib.ps1, so an Administrators-owned gh-pages cache still works reduced)
   4. wait for the Pages build of the new gh-pages sha to succeed
   5. cache-busted live page must reference the exact new assets/index-*.js, which must 200 and contain
      -ExpectString; /storybook/ and /Ve-Bui-Resume.pdf must 200
@@ -44,6 +45,21 @@ try {
         $anc = Invoke-Git -Repo $RepoPath -Arguments @('merge-base', '--is-ancestor', $MergeSha, 'origin/main') -AllowFail
         if ($anc.Code -ne 0) { throw "MergeSha $MergeSha is not on origin/main" }
     }
+    # gh-pages is given the repo explicitly (below); it must be this clone's origin, or gh-pages' own
+    # "remote url mismatch" check against its cached clone would fail half way.
+    $origin = Get-GitValue -Repo $RepoPath -Arguments @('remote', 'get-url', 'origin')
+    if ($origin -ne $script:FrontRepoUrl) { throw "clone origin is '$origin', expected $($script:FrontRepoUrl)" }
+    # gh-pages publishes from its cached clone. If git cannot use it even with the safe.directory entries
+    # from lib.ps1 (wrong owner AND outside them, or corrupt), drop it: gh-pages clones it again.
+    if (Test-Path -LiteralPath $script:GhPagesCache) {
+        foreach ($d in @(Get-ChildItem -LiteralPath $script:GhPagesCache -Directory -ErrorAction SilentlyContinue)) {
+            $ok = Invoke-Git -Repo $d.FullName -Arguments @('rev-parse', '--git-dir') -AllowFail
+            if ($ok.Code -ne 0) {
+                Write-Log "gh-pages cache $($d.FullName) is unusable by git here; removing it (gh-pages re-clones it)" 'WARN'
+                Remove-Item -LiteralPath $d.FullName -Recurse -Force
+            }
+        }
+    }
     $prevSha = Get-GitValue -Repo $RepoPath -Arguments @('rev-parse', 'origin/gh-pages')
     $prevPage = Invoke-Http -Url (Get-CacheBustedUrl $script:SiteUrl)
     $prevAsset = Get-IndexAsset $prevPage.Body
@@ -58,7 +74,9 @@ try {
 $pushUtc = [DateTime]::UtcNow
 try {
     Invoke-Native -File 'cmd' -Arguments @('/c', 'yarn install --frozen-lockfile 2>&1') -WorkDir $RepoPath | Out-Null
-    Invoke-Native -File 'cmd' -Arguments @('/c', 'yarn deploy 2>&1') -WorkDir $RepoPath | Out-Null
+    # yarn appends the extra args to the deploy script ("yarn build:all && gh-pages -d dist"), so gh-pages gets
+    # the repo explicitly instead of asking git for remote.origin.url.
+    Invoke-Native -File 'cmd' -Arguments @('/c', "yarn deploy --repo $($script:FrontRepoUrl) 2>&1") -WorkDir $RepoPath | Out-Null
 } catch {
     Write-Log "build/deploy command failed: $_" 'ERROR'
     # gh-pages only pushes after a successful build; check whether the remote moved anyway.
