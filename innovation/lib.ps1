@@ -61,7 +61,7 @@ function Add-GhToPath {
 
 # Run a native command, stream output to the log, throw on nonzero exit.
 function Invoke-Native {
-    param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @(), [string]$WorkDir = $null, [switch]$AllowFail)
+    param([Parameter(Mandatory)][string]$File, [string[]]$Arguments = @(), [string]$WorkDir = $null, [switch]$AllowFail, [switch]$Quiet)
     $old = Get-Location
     try {
         if ($WorkDir) { Set-Location -LiteralPath $WorkDir }
@@ -70,7 +70,7 @@ function Invoke-Native {
         $out = & $File @Arguments 2>&1 | ForEach-Object { "$_" }
         $code = $LASTEXITCODE
         $ErrorActionPreference = $prevEap
-        foreach ($l in $out) { Write-Log "  $l" 'OUT' }
+        if (-not $Quiet -or $code -ne 0) { foreach ($l in $out) { Write-Log "  $l" 'OUT' } }
         if ($code -ne 0 -and -not $AllowFail) { throw "command failed (exit $code): $File $($Arguments -join ' ')" }
         return @{ Code = $code; Output = @($out) }
     } finally { Set-Location $old }
@@ -144,7 +144,7 @@ function Wait-PagesBuild {
     param([string]$Sha, [datetime]$NotBeforeUtc, [int]$TimeoutSec = 420)
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     while ((Get-Date) -lt $deadline) {
-        $r = Invoke-Native -File $script:GhExe -Arguments @('api', "repos/$($script:FrontRepo)/actions/runs?branch=gh-pages&per_page=10") -AllowFail
+        $r = Invoke-Native -File $script:GhExe -Arguments @('api', "repos/$($script:FrontRepo)/actions/runs?branch=gh-pages&per_page=10") -AllowFail -Quiet
         if ($r.Code -eq 0) {
             try {
                 $json = ($r.Output -join "`n") | ConvertFrom-Json
