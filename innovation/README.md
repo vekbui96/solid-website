@@ -60,6 +60,27 @@ GitHub issues in **solid-website** are the single source of truth, even for API 
 - A proposal marked **Manual step required** is never deployed by the loop.
 - To reject: close the issue. The loop will not propose it again.
 
+## What you see on an issue it builds
+
+- **Plan** comment, then one **Progress** comment that the loop edits in place as it goes (approval,
+  plan, branch, tests, PR, merge, deploy, verify, done, each with a time and the key fact; the current
+  stage is shown at the top with how long it has been running). Editing in place means one notification,
+  not ten. Separate comments (so you are notified) only for: PR opened, a failure or rollback, and the end.
+- **Final comment**: a plain-language **Synopsis** first (what changed, why it matters to a visitor, what
+  you will notice, how it was verified; or, on failure, what went wrong and the state left behind), then
+  the technical **Details**.
+- **Run data**, posted by the runner after the session exits: start/end/duration, outcome, turns, tokens
+  (input, output, cache read, cache creation), API-equivalent cost and model for this issue, the run's
+  overhead (preflight + research) and the whole run, the mode and whether the daily schedule or an
+  on-demand start (approval watcher or by hand) began it. Cost is the figure Claude Code reports at API
+  prices; on the Max subscription it is usage, not billing. Per-issue output tokens and cost are the run's
+  exact totals split by the session's `LOOP-ISSUE-START/END` marker lines (marked `~`); without markers the
+  comment says so and shows run totals only. If a session dies mid-build, the runner marks the progress
+  comment "Run ended during: <stage>". New proposals get a one-line run-data footer.
+- All of these carry the hidden `<!-- innovation-loop -->` marker, so they never count as your
+  adjustments. The session itself cannot edit comments: only `progress.ps1` edits, and only its own
+  marker-checked progress comment on this repo; run data is posted by the runner (`reporting.ps1`).
+
 ## Labels
 
 | Label | Meaning |
@@ -184,6 +205,8 @@ Loop state lives outside the repos, in `C:\Users\Ve Bui\.innovation-loop\`:
 | `logs\run-<time>.log` | runner log (start here) |
 | `logs\run-<time>.summary.txt` | the session's final summary, ending in `LOOP-RESULT: ...` |
 | `logs\run-<time>.jsonl` | full transcript (every tool call) |
+| `logs\run-<time>.rundata.json`, `logs\run-<time>.rundata-<issue>.md` | the run data per issue and the comment bodies the runner posted |
+| `logs\run-<time>.progress.log`, `state\progress\<time>-<issue>.json` | progress.ps1 log; the progress comment id and stage times |
 | `logs\deploy-frontend-*.log`, `logs\api-request-*.log`, `logs\test-*.log` | script logs |
 | `clones\` | the loop's own clones of both repos (never your `D:\projects` checkouts) |
 | `artifacts\<issue>\` | before/after screenshots |

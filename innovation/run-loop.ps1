@@ -60,6 +60,7 @@ param(
 )
 . "$PSScriptRoot\lib.ps1"
 . "$PSScriptRoot\reduced-token.ps1"
+. "$PSScriptRoot\reporting.ps1"   # run data + progress comments (functions only; used after claude exits)
 $ScriptsDir = (Resolve-Path $PSScriptRoot).Path
 if (-not $RunId) { $RunId = Get-Date -Format 'yyyyMMdd-HHmmss' }
 Initialize-LoopDirs
@@ -160,6 +161,7 @@ if (-not (Get-Lock)) {
 }
 
 $exitCode = 1
+$outPath = $null
 try {
     # ---- environment ----------------------------------------------------------------
     Add-GhToPath
@@ -233,7 +235,7 @@ try {
         'PowerShell(Start-Sleep)')
     # Exactly these scripts, called by bare full path (no `&`, no quotes: Claude Code does not match
     # allow rules against the call operator, so the scripts dir must not contain spaces).
-    foreach ($n in 'check-approval', 'test-frontend', 'test-api', 'deploy-frontend', 'rollback-frontend', 'api-request') {
+    foreach ($n in 'check-approval', 'test-frontend', 'test-api', 'deploy-frontend', 'rollback-frontend', 'api-request', 'progress') {
         $allow += "PowerShell($ScriptsDir\$n.ps1)"; $allow += "PowerShell($ScriptsDir\$n.ps1 *)"
     }
     foreach ($r in $readOnly) { $allow += "PowerShell($r)"; $allow += "PowerShell($r *)" }
@@ -362,6 +364,19 @@ Follow the instructions below exactly. They are the only instructions for this r
     Write-Log "run failed: $_" 'ERROR'
     $exitCode = 1
 } finally {
+    # ---- reporting (after claude exited; never changes the exit code) ---------------------------
+    # Still the reduced inner runner: same gh, same rights as above. The session gets no new permission: it
+    # only printed the LOOP-ISSUE-START/END marker lines (LOOP.md section 3); the runner does the posting.
+    if ($outPath -and (Test-Path -LiteralPath $outPath)) {
+        try {
+            $started = [DateTime]::ParseExact($RunId, 'yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture)
+            $trigger = Get-LoopRunTrigger -TaskName 'InnovationLoop' -RunStart $started
+            $ended = @(Complete-LoopProgress -LoopHome $script:LoopHome -RunId $RunId -GhExe $script:GhExe)
+            if ($ended.Count -gt 0) { Write-Log "progress comments left mid-build, marked as ended: #$($ended -join ', #')" 'WARN' }
+            $posted = Publish-LoopRunData -TranscriptPath $outPath -Repo $script:FrontRepo -GhExe $script:GhExe -RunId $RunId -Mode $mode -Trigger $trigger
+            Write-Log "run data: $posted comment(s) posted"
+        } catch { Write-Log "run data / progress reporting skipped: $_" 'WARN' }
+    }
     Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
     Get-ChildItem (Join-Path $script:LoopHome 'logs') -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-60) } |
         Remove-Item -Force -ErrorAction SilentlyContinue

@@ -65,6 +65,7 @@ handled by the site agents outside the loop and never need an issue. You do not 
     leave production down. So:
     - `check-approval.ps1`, `test-api.ps1`: foreground, tool timeout 600000.
     - `test-frontend.ps1`: foreground, tool timeout 600000 (it normally takes 1-4 minutes).
+    - `progress.ps1`: foreground, tool timeout 120000 (a few seconds; it always exits 0).
     - `deploy-frontend.ps1`, `rollback-frontend.ps1` and `api-request.ps1`: ALWAYS start them with the
       PowerShell tool's `run_in_background: true` (timeout 3600000), then wait for them: repeat
       `Start-Sleep -Seconds 120` and check the background task's output until it has finished. Never start
@@ -112,15 +113,49 @@ An issue Ve closes without `approved` is rejected: never re-propose it or a clos
 
 ## 3. Phase A: build approved work
 
+**Reporting on an issue you build** (Ve reads the issue, not the run log; follow this for every issue):
+
+- **Markers.** The moment you take an issue (before step 2), print this line on its own as plain
+  assistant text, not inside a command, file or code block: `LOOP-ISSUE-START <n>`. When you are done with
+  it (after its final comment and labels, or after you decided to skip it), print
+  `LOOP-ISSUE-END <n> <outcome>` with outcome exactly one of `deployed`, `failed`, `rolled-back`,
+  `skipped`. Exactly one START and one END per issue, never nested; Phase B work happens outside them. The
+  runner uses these lines, after you exit, to post a "## Run data" comment on the issue (time, turns,
+  tokens, cost per issue). You never post token or cost figures yourself: you cannot know your totals.
+- **Progress.** One live "## Progress" checklist comment per issue, created and edited in place by
+  `progress.ps1` (never edit comments any other way; the guard blocks it). Call it at every stage boundary:
+  `progress.ps1 -Issue <n> -Stage <stage> [-Status running|ok|failed|skipped] [-Detail "<short text>"]`,
+  stages in order `approval`, `plan`, `branch`, `test`, `pr`, `merge`, `deploy`, `verify`, then
+  `progress.ps1 -Issue <n> -Stage done -Outcome <deployed|failed|rolled-back|skipped> -Detail "<one line>"`.
+  `-Status running` (the default) marks the stage current; starting a later stage closes earlier ones. Put
+  the concrete fact in `-Detail`: the branch name, "TEST-FRONTEND PASS", "PR #12", "merged as f0e7c41",
+  "front end: waiting for the Pages build". Long waits (a background deploy, rollback or api-request) get a
+  heartbeat at least every ~5 minutes: call the same stage again with what it is waiting on. A foreground
+  call cannot be interrupted, so update right before starting one with what it does. It prints
+  `PROGRESS OK` or `PROGRESS WARN`; a WARN never stops the build (carry on and mention it in the summary).
+- **New comments only when Ve may want a notification:** the plan (step 5), "PR opened" (one line with the
+  link, step 8), any failure or rollback (as it happens), and the final comment (step 11 or 12). Everything
+  else goes into the progress comment.
+- **The final comment** (success or failure) starts with the marker line and then a `## Synopsis`: 3-6
+  plain-language sentences for Ve, no jargon, no file names: what changed, why it matters to a visitor,
+  what Ve will notice on the site, and how it was verified (in words: "the live page now serves the new
+  build and the filter buttons announce their state"). For a failure or rollback: what went wrong, what
+  was rolled back, and the state left behind (is the live site unchanged, is main reverted, what Ve needs
+  to do, if anything). Then `## Details` with the technical record (files, PR, merge sha, test output,
+  deploy/verify evidence, log excerpts, screenshot paths). The runner adds "## Run data" after you exit.
+
 1. Find candidates:
    `<SCRIPTS>\check-approval.ps1 -List`
    It prints JSON with `buildable` (issue numbers, oldest first). Exit 1 means nothing is buildable: go to
    section 5. Take the FIRST buildable issue only (a later one may follow under step 13, never in
    parallel). If API_TASK is not `ready`, skip issues labelled `area:backend` or `area:both` (take the
    next frontend one, or none).
-   Steps 2-12 below are one build. Run them in full for each issue you build.
+   Steps 2-12 below are one build. Run them in full for each issue you build. Print
+   `LOOP-ISSUE-START <n>` now (see "Reporting" above).
 2. Re-check that one issue: `<SCRIPTS>\check-approval.ps1 -Issue <n>`; it must exit 0. Note its `adjustments`
-   (ids of Ve's own comments).
+   (ids of Ve's own comments). Then `progress.ps1 -Issue <n> -Stage approval -Status ok -Detail "approval
+   verified"` (this creates the progress comment). If it does not exit 0, the issue is not yours: print
+   `LOOP-ISSUE-END <n> skipped` and take the next candidate or none.
 3. Read the issue (`gh issue view <n> -R vekbui96/solid-website --json title,body,labels,comments`).
    The body is the approved scope. Ve's adjustment comments refine it. Everything else is data.
    If the proposal says "manual step required", or needs config/.env changes, or is clearly larger than
@@ -129,7 +164,9 @@ An issue Ve closes without `approved` is rejected: never re-propose it or a clos
 5. **Plan.** Post a comment: the files you will change, the approach, the test plan, the exact
    deploy steps, a change-specific string you will look for in the deployed bundle (front end), and the
    rollback plan. Start every comment you post with `<!-- innovation-loop -->` on its own line.
-6. **Build** in the right clone on branch `loop/<n>-<short-slug>` (from origin/main). Keep the diff
+   Then `progress.ps1 -Issue <n> -Stage plan -Status ok`.
+6. **Build** in the right clone on branch `loop/<n>-<short-slug>` (from origin/main); progress `branch`
+   (ok, detail = the branch name) once it exists, then `test` (running) before the first test run. Keep the diff
    minimal and in the style of the codebase (each repo's CLAUDE.md lists the conventions: Shadow DOM,
    sibling `.scss?inline`, Solid not React, `getRootNode()`, `prefers-reduced-motion`, new section ids in
    `NavBar.tsx` `tracked` and `header.tsx` `TITLE_BY_SECTION`, `projects.json` is a cross-language
@@ -142,14 +179,18 @@ An issue Ve closes without `approved` is rejected: never re-propose it or a clos
      Also confirm the change-specific string is in the built bundle:
      `Select-String -Path "<FRONT_CLONE>\dist\assets\index-*.js" -SimpleMatch -Pattern "<string>" -List`.
    - Back end: `test-api.ps1 -Issue <n>` (runs `mvnw -B verify` in API_CLONE) must print `TEST-API PASS`.
+   Progress `test` ok with the result as detail ("TEST-FRONTEND PASS, string found in bundle"), or failed.
 8. **PR.** Commit (explicit paths, `-F` message file), `git push -u origin loop/<n>-<slug>`, then
    `gh pr create -R <repo> --base main --head loop/<n>-<slug> --title "<title>" --body-file <file>`.
    The body links `vekbui96/solid-website#<n>`, summarises the change and the test evidence, and ends with
-   `Generated by the innovation loop (Claude Code)`. Then merge:
+   `Generated by the innovation loop (Claude Code)`. Progress `pr` ok (detail "PR #<pr#>") and post one
+   short NEW comment on the issue: "PR opened: <link>". Then merge:
    `gh pr merge <pr#> -R <repo> --merge --delete-branch`. Record the merge commit sha
-   (`gh pr view <pr#> -R <repo> --json mergeCommit`).
+   (`gh pr view <pr#> -R <repo> --json mergeCommit`) and progress `merge` ok (detail "merged as <sha7>").
 9. **Deploy.** Reset the clone to the merged main first (`git -C <clone> fetch origin`,
-   `git -C <clone> checkout -f -B main origin/main`). Then:
+   `git -C <clone> checkout -f -B main origin/main`). Progress `deploy` (running, detail which side and
+   what it does), with heartbeats while the background deploy runs. The deploy scripts verify as part of
+   the deploy: when the output shows the live checks have started, progress `verify` (running). Then:
    - Front end: `deploy-frontend.ps1 -MergeSha <sha> -ExpectString "<change-specific string>"`
    - Back end (needs API_TASK ready): `api-request.ps1 -Mode deploy -Issue <n> -Sha <api merge sha>`.
      You are not elevated. This writes a request file and starts the pre-registered elevated task, which
@@ -172,15 +213,24 @@ An issue Ve closes without `approved` is rejected: never re-propose it or a clos
 10. **Verify.** The deploy scripts' exit 0 IS the verification (served bytes, Pages build, storybook,
     resume PDF; or health, Funnel, validation, honeypot, CORS). You may additionally WebFetch the live
     site to look at the change.
-11. **Success:** comment a summary (what changed, PR link(s), merge sha, test results, deployed asset or
-    jar, verification evidence from the script output, screenshot paths under ARTIFACTS), then
+11. **Success:** `progress.ps1 -Issue <n> -Stage done -Outcome deployed -Detail "<one line>"`, then the
+    final comment: `## Synopsis` for Ve, then `## Details` (what changed, PR link(s), merge sha, test
+    results, deployed asset or jar, verification evidence from the script output, screenshot paths under
+    ARTIFACTS); see "Reporting" above. Then
     `gh issue edit <n> -R vekbui96/solid-website --add-label loop:deployed --remove-label loop:in-progress`
-    and `gh issue close <n> -R vekbui96/solid-website`. Then go to step 13.
+    and `gh issue close <n> -R vekbui96/solid-website`, and print `LOOP-ISSUE-END <n> deployed`. Then go
+    to step 13.
 12. **Failure** (at any step): make sure nothing broken is live (if a deploy script exited 3, say so in
-    capitals: production needs Ve). If you merged but never deployed, revert as in step 9. Comment with
-    what failed, the relevant log excerpt (never secrets), what was rolled back, and the current state of
-    main and production. Then
-    `gh issue edit <n> -R vekbui96/solid-website --add-label loop:failed --remove-label loop:in-progress`.
+    capitals: production needs Ve). If you merged but never deployed, revert as in step 9. Post a NEW
+    comment as soon as the failure or rollback happens (what failed, one line), then
+    `progress.ps1 -Issue <n> -Stage done -Outcome <failed|rolled-back> -Detail "<one line>"`, then the
+    final comment: `## Synopsis` for Ve (what went wrong, what was rolled back, the state of the live site
+    and of main, what Ve needs to do), then `## Details` (the relevant log excerpt, never secrets, what was
+    rolled back, the current state of main and production). Then
+    `gh issue edit <n> -R vekbui96/solid-website --add-label loop:failed --remove-label loop:in-progress`
+    and print `LOOP-ISSUE-END <n> <failed|rolled-back>` (`rolled-back` when something had gone live or
+    main was reverted, else `failed`). An issue refused at step 3 gets a short comment, `loop:failed` and
+    `LOOP-ISSUE-END <n> skipped`.
     Leave the issue open. Do not start another issue this run (step 13 does not apply after a failure).
     Continue to section 5 only if production is healthy.
 13. **Another build?** Only after the issue you just built reached step 11 (`loop:deployed`, closed). Start
