@@ -5,9 +5,17 @@
 .DESCRIPTION
   Run from an ELEVATED PowerShell. It does not run either task.
 
-  1. "InnovationLoop": daily at -At (13:17), run whether logged on or not, as SERVER-PC\VeBui,
-     RunLevel LIMITED (not elevated). Runs run-loop.ps1 -> claude -p. Asks once for VeBui's password
-     (stored by Task Scheduler).
+  1. "InnovationLoop": daily at -At (13:17), run whether logged on or not, as SERVER-PC\VeBui. Runs
+     run-loop.ps1 -> claude -p. Logon type -LoopLogonType: S4U (default, no stored password) or Password
+     (asks for VeBui's password in the console; Task Scheduler stores it).
+     The task is registered RunLevel Limited, but that does NOT make it non-elevated: Windows gives a
+     non-interactive logon of an admin account no UAC split token, so the task starts with a full admin token
+     whatever the RunLevel or logon type. The loop is non-elevated because run-loop.ps1 drops its own rights
+     (reduced-token.ps1) before doing anything else, and fails closed if it cannot. Verify in the run log:
+       "reduced inner runner pid N; its token: TokenElevation=0 ... Administrators=deny-only"
+       "claude pid N token: TokenElevation=0 ... Administrators=deny-only"
+
+  Works over SSH: nothing here opens a GUI dialog (passwords are read with Read-Host -AsSecureString).
   2. "innovation-loop-api": NO trigger, RunLevel HIGHEST, as SERVER-PC\VeBui (S4U logon by default: no
      stored password; it needs only local files and SSH to GitHub). Its only action is
        powershell -File C:\ProgramData\innovation-loop-api\bin\api-runner.ps1 -Root ... -QueueDir ...
@@ -33,16 +41,32 @@ param(
     [string]$ApiTaskName = 'innovation-loop-api',
     [string]$At = '13:17',
     [string]$User = 'SERVER-PC\VeBui',
-    [string]$ScriptPath = (Join-Path $PSScriptRoot 'run-loop.ps1'),
+    [string]$ScriptPath = '',      # default: run-loop.ps1 next to this script (resolved below; $PSScriptRoot is empty in param defaults on PS 5.1 with -File)
     [string]$ExtraArgs = '',                                       # e.g. '-ProposeOnly'
     [string]$ApiRoot = 'C:\ProgramData\innovation-loop-api',
     [string]$QueueDir = 'C:\Users\Ve Bui\.innovation-loop\api-queue',
+    [ValidateSet('S4U', 'Password')][string]$LoopLogonType = 'S4U',
     [ValidateSet('S4U', 'Password')][string]$ApiLogonType = 'S4U',
     [string]$ApiSshAlias = 'github-solid-website-api',          # existing ~\.ssh\config alias for the API deploy key
     [switch]$ApiOnly,              # set up only the API side (used for testing the trigger path)
     [switch]$EnableApiTask         # testing only; by default both tasks are left disabled
 )
 $ErrorActionPreference = 'Stop'
+$here = $PSScriptRoot
+if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $ScriptPath) { $ScriptPath = Join-Path $here 'run-loop.ps1' }
+
+# Console password prompt (works over SSH; Get-Credential is a GUI dialog there and fails on empty passwords).
+function Read-TaskPassword {
+    param([string]$For)
+    $sec = Read-Host -AsSecureString "Password for $User ($For; Task Scheduler stores it)"
+    $plain = (New-Object System.Net.NetworkCredential('', $sec)).Password
+    if ([string]::IsNullOrEmpty($plain)) {
+        throw "empty password: a Password logon needs $User to have a password (Task Scheduler cannot store an empty one). Set one, or use -LoopLogonType S4U / -ApiLogonType S4U."
+    }
+    return $plain
+}
+
 $id = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not (New-Object Security.Principal.WindowsPrincipal $id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'run this from an elevated PowerShell'
@@ -55,7 +79,7 @@ foreach ($d in '', 'bin', 'clones', 'state', 'logs', 'results', 'lock', 'api-bac
     if (-not (Test-Path -LiteralPath $p)) { New-Item -ItemType Directory -Path $p | Out-Null }
 }
 foreach ($f in 'api-runner.ps1', 'lib.ps1', 'deploy-api.ps1', 'rollback-api.ps1') {
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $f) -Destination (Join-Path $ApiRoot "bin\$f") -Force
+    Copy-Item -LiteralPath (Join-Path $here $f) -Destination (Join-Path $ApiRoot "bin\$f") -Force
 }
 $utf8 = New-Object Text.UTF8Encoding $false
 $cloneFwd = (Join-Path $ApiRoot 'clones\solid-website-api') -replace '\\', '/'
@@ -118,12 +142,12 @@ $apiAction = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument
 $apiPrincipal = New-ScheduledTaskPrincipal -UserId $User -LogonType $ApiLogonType -RunLevel Highest
 $apiTask = New-ScheduledTask -Action $apiAction -Settings $settings -Principal $apiPrincipal `
     -Description 'Innovation loop API deploy/rollback (elevated). Started by api-request.ps1 via a request file; validates it in api-runner.ps1.'
-$cred = $null
-if ($ApiLogonType -eq 'Password' -or -not $ApiOnly) {
-    $cred = Get-Credential -UserName $User -Message "Password for $User (stored by Task Scheduler so the loop can run while logged off)"
+$password = $null
+if ($ApiLogonType -eq 'Password' -or ($LoopLogonType -eq 'Password' -and -not $ApiOnly)) {
+    $password = Read-TaskPassword -For 'so the tasks can run while logged off'
 }
 if ($ApiLogonType -eq 'Password') {
-    Register-ScheduledTask -TaskName $ApiTaskName -InputObject $apiTask -User $User -Password $cred.GetNetworkCredential().Password -Force | Out-Null
+    Register-ScheduledTask -TaskName $ApiTaskName -InputObject $apiTask -User $User -Password $password -Force | Out-Null
 } else {
     Register-ScheduledTask -TaskName $ApiTaskName -InputObject $apiTask -Force | Out-Null
 }
@@ -138,18 +162,27 @@ Write-Host "Registered $ApiTaskName ($(if ($EnableApiTask) { 'ENABLED' } else { 
 
 if ($ApiOnly) { return }
 
-# ---- main loop task: daily, LIMITED --------------------------------------------------------------
+# ---- main loop task: daily -----------------------------------------------------------------------
+# RunLevel Limited is kept as a statement of intent, but it does not reduce anything for this logon (no
+# UAC split token); run-loop.ps1 drops its own rights. S4U needs no stored password: the loop reaches
+# GitHub with SSH keys and the gh token from the user profile, not with Windows network credentials.
 if (-not (Test-Path -LiteralPath $ScriptPath)) { throw "not found: $ScriptPath" }
+if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $ScriptPath) 'reduced-token.ps1'))) { throw "reduced-token.ps1 not found next to $ScriptPath (run-loop.ps1 needs it to drop rights)" }
 $argument = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ScriptPath`" $ExtraArgs".Trim()
 $action = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument $argument -WorkingDirectory (Split-Path $ScriptPath)
 $trigger = New-ScheduledTaskTrigger -Daily -At $At
 $loopSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
     -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RunOnlyIfNetworkAvailable
-$principal = New-ScheduledTaskPrincipal -UserId $User -LogonType Password -RunLevel Limited
+$principal = New-ScheduledTaskPrincipal -UserId $User -LogonType $LoopLogonType -RunLevel Limited
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $loopSettings -Principal $principal `
-    -Description 'Portfolio innovation loop (claude -p, LOOP.md), not elevated. See D:\projects\solid-website\innovation\README.md'
-Register-ScheduledTask -TaskName $LoopTaskName -InputObject $task -User $User -Password $cred.GetNetworkCredential().Password -Force | Out-Null
+    -Description 'Portfolio innovation loop (claude -p, LOOP.md). run-loop.ps1 drops its own rights (the task RunLevel alone does not). See D:\projects\solid-website\innovation\README.md'
+if ($LoopLogonType -eq 'Password') {
+    Register-ScheduledTask -TaskName $LoopTaskName -InputObject $task -User $User -Password $password -Force | Out-Null
+} else {
+    Register-ScheduledTask -TaskName $LoopTaskName -InputObject $task -Force | Out-Null
+}
+$password = $null
 Disable-ScheduledTask -TaskName $LoopTaskName | Out-Null
 Get-ScheduledTask -TaskName $LoopTaskName, $ApiTaskName | Format-Table TaskName, State
-Write-Host "Created $LoopTaskName (DISABLED, limited) and $ApiTaskName (DISABLED, highest, no trigger)."
+Write-Host "Created $LoopTaskName (DISABLED, $LoopLogonType logon; run-loop drops rights) and $ApiTaskName (DISABLED, highest, no trigger)."
 Write-Host "Enable both when ready: Enable-ScheduledTask -TaskName $LoopTaskName; Enable-ScheduledTask -TaskName $ApiTaskName"

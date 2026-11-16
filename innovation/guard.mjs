@@ -138,7 +138,7 @@ if (tool === 'Bash' || tool === 'PowerShell') {
     for (const s of ps1) {
       const f = norm(s);
       if (!SCRIPTS || !f.startsWith(SCRIPTS + '\\')) block(`scripts must be called by bare full path from the pinned scripts dir: ${SCRIPTS}\\<name>.ps1 (saw ${s})`);
-      if (/(run-loop|install-task|lib)\.ps1$/.test(f)) block('the loop may not start itself, install tasks, or run lib.ps1');
+      if (/(run-loop|install-task|lib|reduced-token)\.ps1$/.test(f)) block('the loop may not start itself, install tasks, or run lib.ps1 / reduced-token.ps1');
       // the elevated side is reached only through api-request.ps1 (request file + fixed scheduled task)
       if (/(api-runner|deploy-api|rollback-api)\.ps1$/.test(f)) block('API deploys/rollbacks go through api-request.ps1 only');
     }
