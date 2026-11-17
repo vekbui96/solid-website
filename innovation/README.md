@@ -26,9 +26,12 @@ Once a day the `InnovationLoop` scheduled task runs `run-loop.ps1`, which starts
    inside the first half of its time budget (`-NextBuildCutoffPercent`, default 50% of the 180-minute
    claude timeout, which leaves room for a worst-case build with rollback plus Phase B), and, for
    API work, the elevated API task still answers.
-2. **Phase B (propose).** If fewer than 5 proposals are open, it looks over both repos and the live
-   site and opens up to 3 new `loop:proposal` issues (never more than 5 open), weighted toward
-   [`FOCUS.md`](FOCUS.md).
+2. **Phase B (propose).** If fewer than 5 proposals await your review, it looks over both repos and the
+   live site and opens up to 3 new `loop:proposal` issues (never more than 5 awaiting review), weighted
+   toward [`FOCUS.md`](FOCUS.md). A proposal awaits review while it is open and has neither `approved`
+   nor `loop:failed`: approved work is your build queue and does not block new ideas, and failed issues
+   are listed at the end of each run summary as "Failed, waiting on Ve". The approval watcher's refill
+   trigger counts the same way (one rule for both).
 
 ## Steering it: FOCUS.md
 
