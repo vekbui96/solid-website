@@ -227,10 +227,13 @@ An issue Ve closes without `approved` is rejected: never re-propose it or a clos
    - in each proposal's "Why", name the focus priority it serves, or say "outside the focus list".
    If FOCUS is `none`, or the file is missing or unreadable, carry on without it exactly as below. The
    file is read-only for you: never edit it, never propose changing it.
-1. Count open proposals:
-   `gh issue list -R vekbui96/solid-website --label loop:proposal --state open --json number --limit 50`.
-   If 5 or more are open, propose nothing; go to section 6. Otherwise you may open
-   `min(3, 5 - open)` new issues.
+1. Count proposal slots:
+   `gh issue list -R vekbui96/solid-website --label loop:proposal --state open --json number,labels --limit 100`.
+   A proposal holds one of the 5 slots only while it awaits Ve's review: count the open ones that have
+   NEITHER `approved` (Ve's build queue) NOR `loop:failed` (those are listed in your summary instead,
+   section 6). This is the same rule the approval watcher's refill uses. If 5 or more await review,
+   propose nothing; go to section 6. Otherwise you may open `min(3, 5 - awaiting)` new issues. Note the
+   open issues that carry both `approved` and `loop:failed` for the summary.
 2. Learn what exists and what was already decided:
    - all `loop:proposal` issues, open AND closed, with their labels and Ve's comments
      (`gh issue list -R vekbui96/solid-website --label loop:proposal --state all --json number,title,state,labels --limit 200`).
@@ -281,4 +284,6 @@ Your final message is the run summary for the log. Its LAST line must be exactly
 Above it, list: each issue built (or none) and its outcome, PRs, deploys, and if fewer than MAX_BUILDS
 were built while more approved work existed, which step 13 condition stopped you; whether a FOCUS file
 was used; proposals opened (numbers, titles and the focus priority each serves); anything skipped and
-why; any guard-hook blocks.
+why; any guard-hook blocks; and one line `Failed, waiting on Ve: #<n> (<one-line reason from its failure
+comment>); ...` for the open `approved` + `loop:failed` proposals (they no longer take a proposal slot),
+or `Failed, waiting on Ve: none`.
