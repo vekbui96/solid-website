@@ -1,138 +1,128 @@
 <#
 .SYNOPSIS
-  Entry point for the innovation loop's daily scheduled task. Runs one headless `claude -p` session that
-  follows LOOP.md.
+  Entry point for this project's innovation loop daily scheduled task. Runs one headless `claude -p`
+  session PER JOB, under a REDUCED token: one for each approved issue it builds (up to MaxBuilds, strictly
+  one after another), then one for Phase B proposals, each following its sections of LOOP.md.
 
 .DESCRIPTION
-  - single-instance lock with stale-lock handling (~\.innovation-loop\lock\run.lock)
-  - all state outside any repo: ~\.innovation-loop\{logs,clones,work,artifacts,state,api-backups,api-staging,lock}
-  - refreshes the loop's own clones of both repos (never touches D:\projects\*, which hold Ve's work)
-  - puts gh on PATH; strips secret-looking env vars (RESEND_API_KEY etc.) from the session
-  - generates the permission settings (allowlist + guard hook) and runs claude with them
-  - logs the full stream-json transcript; exits nonzero on failure
+  Shared run setup happens ONCE, here in PowerShell (no tokens):
+  - single-instance lock with stale-lock handling (~\.innovation-loop-<project>\lock\run.lock)
+  - all state outside any repo: ~\.innovation-loop-<project>\{logs,clones,work,artifacts,state,elevated,scratch,lock}
+  - preflight; if the project has a server: the elevated deploy task (installed, admin-only copy matches this
+    checkout, selftest round trip). If not, build sessions are told SERVER_DEPLOY=unavailable and build only
+    changes that need no server deploy
+  - precheck: check-approval.ps1 -List; if nothing is buildable (FULL mode) and no proposal slot is free
+    (gate-rules.ps1 Get-ProposalSlots), it writes a NOTHING-TO-DO summary and rundata.json with no session
+  - strips secret-looking env vars (and ANTHROPIC_API_KEY, so the run stays on the subscription);
+    generates the permission settings per session kind (dontAsk + allowlist + guard hook; a proposal
+    session gets check-approval.ps1 only)
 
-  The scripts and LOOP.md are read from THIS directory ($PSScriptRoot), which should be Ve's checkout
-  (D:\projects\solid-website\innovation). The loop's guard hook forbids the session from editing them,
-  so a run can never rewrite its own instructions; Ve updates them with git pull.
+  Then one session per job, each with its own prompt (a header naming its one job + only the LOOP.md
+  sections it needs), model, turn cap and time limit (innovation\sessions.json, gate-rules.ps1
+  Get-SessionConfig; kept out of loop.config.json so a model change never stales the elevated copy):
+  - build sessions (FULL): the loop's clones are reset to origin/main before each. The next build starts
+    only when the previous one ended loop:deployed (or was skipped by the one-server-deploy rule), fewer than
+    MaxBuilds were built and enough time is left (gate-rules.ps1 Get-NextBuildDecision). After each build
+    session its issue is finalised here: left loop:in-progress -> loop:failed with a failure marker; and if
+    the session merged something whose deploy was neither verified nor rolled back and verified
+    (Get-DeployCertainty over the merge / deploy / rollback records) the RUN STOPS there: no further build,
+    no proposals, LOOP-RESULT FAILED.
+  - one proposal session (FULL and PROPOSE_ONLY), only when a proposal slot is free and enough time is left;
+    approved specs' slices go first (check-approval.ps1 -List `slicesToOpen`)
+  After the sessions: one combined summary whose last line is the run's LOOP-RESULT (Get-RunResult), and the
+  spec checklists (Publish-SpecProgress below: an approved spec whose slices are all done is closed).
+  The guard is told each session's kind through <PREFIX>_MODE = BUILD | PROPOSE.
+  Every claude child is started through LowRights.cs (CreateRestrictedToken LUA filter, Medium integrity,
+  created suspended and resumed only after its own token reads reduced) and fails closed otherwise. A
+  scheduled task's RunLevel does NOT do this: Windows gives an admin account's non-interactive logons a
+  full token whatever the RunLevel or logon type.
 
-  DROPPING RIGHTS. The task is registered RunLevel Limited, but Windows gives a non-interactive (S4U or
-  Password) logon of an admin account no UAC split token, so the task actually starts this script with a full
-  admin token (TokenElevation=1, TokenElevationType=1). This script therefore drops its own rights first: the
-  outer invocation does only one privileged thing (makes the loop's clones owned by the user, so git accepts
-  them under the reduced token), then re-runs itself with -ReducedInner under a reduced token (reduced-token.ps1:
-  UAC-style filtered copy of its own token, Administrators deny-only, no admin privileges, Medium integrity) and
-  waits for it. Everything else (lock, clone refresh, preflight, claude and all its children) runs reduced. It
-  fails closed: if the rights cannot be dropped, or the inner runner or claude still reports an elevated token,
-  the run aborts. There is no override switch.
+  The scripts and LOOP.md are read from THIS directory, the project checkout's innovation\ (the guard
+  forbids the session from editing it). Keep that checkout on main and pull to update the loop.
 
 .PARAMETER ProposeOnly
-  Phase B only (observe + propose). Nothing is built, merged or deployed. Use for the first supervised run.
+  Phase B only (observe + propose). Nothing is built, merged or deployed. Use for the supervised start.
 .PARAMETER DryRun
-  Do everything up to the claude call (drop rights, lock, dirs, clones, settings, prompt), print the command,
-  then stop.
+  Everything up to the first claude call (lock, dirs, clones, task check without triggering it, settings),
+  then the sessions the run would start (each build assumed deployed, for planning) with their prompts,
+  models, caps and limits. -QueueFile <json> (dry run only) plans from a saved check-approval.ps1 -List output.
+.PARAMETER SelfTest
+  Only check the elevated deploy task from THIS process: installed, copy current, selftest round trip.
 .PARAMETER MaxBuilds
-  Most approved issues Phase A may build in one run (default 2, range 1-5). They are built strictly one after
-  another, each through the full plan/build/test/PR/merge/deploy/verify cycle. Another one is started only after
-  the previous one ended loop:deployed (never after a failure or rollback) and before the cutoff below.
-.PARAMETER NextBuildCutoffPercent
-  Phase A starts another build only while less than this share of -TimeoutMinutes has passed (default 50).
-  Why 50: a worst-case front-end cycle (two test-frontend runs at their 10-minute tool limit, a deploy that
-  waits out the Pages-build and served-bytes checks and then rolls back) is about an hour, and Phase B needs
-  ~15 minutes after it. With the default 180-minute timeout, 50% leaves 90 minutes, so a build started just
-  before the cutoff still finishes, rollback included, before claude is killed (killing it mid-deploy is the
-  thing to avoid). Real runs so far took ~7 minutes per build, so the cutoff only bites when a run is already
-  unusually slow.
-.PARAMETER ReducedInner
-  Internal: set by the outer invocation when it re-runs this script under the reduced token. Do not pass it.
+  At most this many approved issues are built per run (default 2, range 1-5), one session each, strictly one
+  after another. At most one server deploy happens per run.
+.PARAMETER NextBuildMinMinutes
+  Minutes that must remain before the run's deadline (start + TimeoutMinutes) for another build session to
+  START (default 120: one cycle has taken ~60-75 min and up to ~110 with a CI fix round).
+.PARAMETER MaxTurns
+  Overrides every session's turn cap (sessions.json: build 150, propose 80). 0 = use sessions.json.
+.PARAMETER Model
+  Overrides every session's model (sessions.json). Empty = use sessions.json.
+.PARAMETER IgnoreBudget
+  Do not consult the ops hub's plan budget (D:\hub\state\plan-budget.json) this run: for the owner's supervised
+  runs. Without it the runner reads the verdict before every session: normal = as always; no-opus = no
+  session on an Opus model (Opus builds wait, approved and untouched, for a later run); hold = no session at
+  all (NOTHING-TO-DO, like the precheck). A missing, unreadable, unknown or stale file counts as normal (WARN).
+.PARAMETER BudgetFile
+  Where the plan budget is read from (default gate-rules.ps1 $PlanBudgetPath); for dry runs and tests.
+
+  FOCUS.md (next to this script) is the owner's steering file for Phase B: priorities and things to avoid.
+  Missing, empty, or only headings and comments = FOCUS: none, and the loop proposes from its own judgment.
 #>
 [CmdletBinding()]
 param(
     [switch]$ProposeOnly,
     [switch]$DryRun,
-    [int]$MaxTurns = 250,
-    [int]$TimeoutMinutes = 180,
-    [string]$Model = '',
-    [string]$ClaudeExe = 'C:\Users\Ve Bui\.local\bin\claude.exe',
+    [switch]$SelfTest,
     [ValidateRange(1, 5)][int]$MaxBuilds = 2,
-    [ValidateRange(10, 90)][int]$NextBuildCutoffPercent = 50,
-    [switch]$ReducedInner,
-    [string]$RunId = ''
+    [int]$NextBuildMinMinutes = 120,
+    [int]$MaxTurns = 0,
+    [int]$TimeoutMinutes = 240,
+    [string]$Model = '',
+    [string]$QueueFile = '',
+    # the ops hub's plan budget (gate-rules.ps1 Get-PlanBudgetVerdict): -IgnoreBudget for supervised runs
+    [switch]$IgnoreBudget,
+    [string]$BudgetFile = '',
+    [string]$ClaudeExe = ''
 )
 . "$PSScriptRoot\lib.ps1"
-. "$PSScriptRoot\reduced-token.ps1"
-$ScriptsDir = (Resolve-Path $PSScriptRoot).Path
-if (-not $RunId) { $RunId = Get-Date -Format 'yyyyMMdd-HHmmss' }
+. "$PSScriptRoot\gate-rules.ps1"  # slots, specs, retry rule, precheck, session planning (pure functions)
+# $PSScriptRoot is empty in param() defaults under `powershell -File` on PS 5.1: resolve defaults here.
+if (-not $ClaudeExe) { $ClaudeExe = "$(Get-Cfg 'tools.claude' (Join-Path $script:ProfileDir '.local\bin\claude.exe'))" }
+$ScriptsDir = (Resolve-Path $script:KitDir).Path
+$RunStart = Get-Date
+$RunId = $RunStart.ToString('yyyyMMdd-HHmmss')
+$Deadline = $RunStart.AddMinutes($TimeoutMinutes)
 Initialize-LoopDirs
 $script:LogFile = Join-Path $script:LoopHome "logs\run-$RunId.log"
 $mode = 'FULL'; if ($ProposeOnly) { $mode = 'PROPOSE_ONLY' }
+$title = "$(Get-Cfg 'title' $script:Project)"
+$OwnerName = "$(Get-Cfg 'ownerName' 'the owner')"   # optional config key: how summaries name the owner ("Failed, waiting on <ownerName>")
 
-# ---- outer: drop rights, then re-run reduced ----------------------------------------------
-if (-not $ReducedInner) {
-    Write-Log "innovation loop run $RunId mode=$mode dryRun=$DryRun scripts=$ScriptsDir"
-    $outerExit = 1
-    try {
-        $runner = Get-TokenState
-        if ($runner.Elevation -ne 0) {
-            Write-Log "runner token: $runner. Elevated, as expected for a scheduled run: this logon gets no UAC split token, so the task's RunLevel does not apply. Dropping rights before doing anything else."
-            # git refuses a repo whose owner is neither the current user nor (via an ENABLED membership) the
-            # Administrators group. Clones made by earlier elevated runs are owned by Administrators, which the
-            # reduced token holds deny-only, so hand the clone roots and .git dirs to the user. Only ownership
-            # changes; nothing in the repos is executed or read here.
-            $me = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-            foreach ($cl in @($script:FrontClone, $script:ApiClone)) {
-                foreach ($p in @($cl, (Join-Path $cl '.git'))) {
-                    if ((Test-Path -LiteralPath $p) -and ((Get-Acl -LiteralPath $p).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $me)) {
-                        & icacls.exe $p /setowner "*$me" /C /Q | Out-Null
-                        if ($LASTEXITCODE -ne 0) { throw "could not make the user the owner of $p" }
-                        Write-Log "made the user the owner of $p"
-                    }
-                }
-            }
-        } else {
-            Write-Log "runner token: $runner (not elevated); running the inner runner under the reduced token anyway"
-        }
-        $fwd = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$ScriptsDir\run-loop.ps1`"",
-            '-ReducedInner', '-RunId', $RunId, '-MaxTurns', "$MaxTurns", '-TimeoutMinutes', "$TimeoutMinutes", '-ClaudeExe', "`"$ClaudeExe`"",
-            '-MaxBuilds', "$MaxBuilds", '-NextBuildCutoffPercent', "$NextBuildCutoffPercent")
-        if ($ProposeOnly) { $fwd += '-ProposeOnly' }
-        if ($DryRun) { $fwd += '-DryRun' }
-        if ($Model) { $fwd += @('-Model', "`"$Model`"") }
-        $innerOut = Join-Path $script:LoopHome "logs\run-$RunId.inner.out.log"
-        $innerErr = Join-Path $script:LoopHome "logs\run-$RunId.inner.err.log"
-        # throws (fail closed) if the token cannot be reduced or the started process's token is not reduced
-        $inner = Start-ReducedProcess -FilePath "$PSHOME\powershell.exe" -ArgumentString ($fwd -join ' ') -WorkingDirectory $ScriptsDir `
-            -StdoutPath $innerOut -StderrPath $innerErr
-        try {
-            Write-Log "reduced inner runner pid $($inner.Id); its token: $($inner.Token)"
-            $limit = ($TimeoutMinutes + 45) * 60 * 1000
-            if (-not $inner.WaitForExit($limit)) {
-                Write-Log 'TIMEOUT: inner runner did not finish; killing its process tree' 'ERROR'
-                & taskkill.exe /PID $inner.Id /T /F 2>&1 | Out-Null
-                $inner.Kill()
-                throw 'inner runner timed out'
-            }
-            $outerExit = $inner.ExitCode
-        } finally { $inner.Dispose() }
-        $errText = ''
-        if (Test-Path -LiteralPath $innerErr) { $errText = ([IO.File]::ReadAllText($innerErr)).Trim() }
-        if ($errText) { Write-Log "inner runner stderr: $errText" 'WARN' }
-    } catch {
-        Write-Log "could not run the loop with dropped rights (not falling back to the elevated token): $_" 'ERROR'
-        $outerExit = 1
-    }
-    Write-Log "outer exit $outerExit"
-    exit $outerExit
+# sessions.json: the owner's models, turn caps and time limits per session kind (defaults in gate-rules.ps1)
+$sessionsJson = $null
+$sessionsPath = Join-Path $ScriptsDir 'sessions.json'
+if (Test-Path -LiteralPath $sessionsPath -PathType Leaf) {
+    try { $sessionsJson = [IO.File]::ReadAllText($sessionsPath) | ConvertFrom-Json } catch { Write-Log "sessions.json is not valid JSON, using the defaults: $_" 'WARN' }
+}
+$Cfg = Get-SessionConfig $sessionsJson
+foreach ($k in 'build', 'propose', 'review') { if ($MaxTurns -gt 0) { $Cfg[$k].maxTurns = $MaxTurns } }
+$cfgLine = @('build', 'propose' | ForEach-Object { $c = $Cfg[$_]; $m = "$($c.model)"; if ($_ -eq 'build') { $m += " (small: $($c.smallModel) for $(@($c.smallLabels) -join '/'))" }; "$_=$m turns=$($c.maxTurns) timeout=$($c.timeoutMinutes)m" }) -join '; '
+Write-Log "$title innovation loop run $RunId mode=$mode dryRun=$DryRun maxBuilds=$MaxBuilds scripts=$ScriptsDir"
+Write-Log "sessions: $cfgLine$(if ($Model) { "; -Model $Model overrides all" })"
+
+if ($SelfTest) {
+    Write-Log "selftest: elevated=$(Test-IsElevated) (run this from a NORMAL PowerShell to prove the non-elevated trigger)"
+    if (-not $script:ServerEnabled) { Write-Output 'SELFTEST OK (no server: nothing elevated to test)'; exit 0 }
+    $stale = Get-StaleElevatedFiles -ScriptsDir $ScriptsDir
+    if ($stale.Count -gt 0) { Write-Log "elevated copy differs from this checkout: $($stale -join ', ')" 'WARN' }
+    $self = Invoke-ElevatedRequest -Mode selftest -TimeoutMinutes 3
+    Write-Log "selftest result: $($self.status) $($self.message)"
+    if ($self.status -eq 'ok' -and $stale.Count -eq 0) { Write-Output 'SELFTEST OK'; exit 0 }
+    Write-Output "SELFTEST FAILED $($self.status) $($self.message) stale=$($stale -join ',')"; exit 1
 }
 
-# ---- inner: everything below runs under the reduced token -----------------------------------
-$self = Get-TokenState
-Write-Log "inner runner pid $PID token: $self"
-if (-not $self.IsReduced -or (Test-IsElevated)) {
-    Write-Log 'inner runner still has an elevated token; refusing to run (fail closed)' 'ERROR'
-    exit 1
-}
-
-# ---- lock -------------------------------------------------------------------------
+# ---- lock ---------------------------------------------------------------------------------
 $lockPath = Join-Path $script:LoopHome 'lock\run.lock'
 $staleAfter = [TimeSpan]::FromMinutes($TimeoutMinutes + 30)
 function Get-Lock {
@@ -150,218 +140,623 @@ if (-not (Get-Lock)) {
     $alive = $false
     if ($lockPid -gt 0) { $p = Get-Process -Id $lockPid -ErrorAction SilentlyContinue; $alive = ($p -and $p.ProcessName -match 'powershell') }
     $age = [DateTime]::UtcNow - $lockTime.ToUniversalTime()
-    if ($alive -and $age -lt $staleAfter) {
-        Write-Log "another run (pid $lockPid, started $lockTime) holds the lock; exiting" 'WARN'
-        exit 0
-    }
+    if ($alive -and $age -lt $staleAfter) { Write-Log "another run (pid $lockPid, started $lockTime) holds the lock; exiting" 'WARN'; exit 0 }
     Write-Log "removing stale lock (pid $lockPid alive=$alive age=$age)" 'WARN'
     Remove-Item -LiteralPath $lockPath -Force
     if (-not (Get-Lock)) { Write-Log 'could not take the lock after clearing it' 'ERROR'; exit 1 }
 }
 
-$exitCode = 1
-try {
-    # ---- environment ----------------------------------------------------------------
-    Add-GhToPath
-    $keep = '^(ANTHROPIC_|CLAUDE_CODE_)'
-    foreach ($v in @(Get-ChildItem env: | Where-Object { $_.Name -match '(RESEND|SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|APIKEY|PRIVATE_KEY|MAIL_)' -and $_.Name -notmatch $keep })) {
-        Remove-Item -LiteralPath "env:$($v.Name)"
-        Write-Log "unset env var $($v.Name) for this run"
+# The queue as check-approval.ps1 -List sees it (buildable, retry, labels, slots, specs, slicesToOpen,
+# waitingOnOwner), or $null when that failed. Runs it as its own process, exactly like merge-pr.ps1 does.
+function Get-LoopQueue {
+    if ($DryRun -and $QueueFile) { Write-Log "dry run: queue read from $QueueFile"; return ([IO.File]::ReadAllText($QueueFile) | ConvertFrom-Json) }
+    try {
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ScriptsDir 'check-approval.ps1') -List 2>&1 | ForEach-Object { "$_" }
+        $code = $LASTEXITCODE; $ErrorActionPreference = $prev
+        $json = @($out | Where-Object { "$_".TrimStart().StartsWith('{') }) | Select-Object -Last 1
+        if ($code -gt 1 -or -not $json) { Write-Log "queue check failed (check-approval exit $code): $((@($out) | Select-Object -Last 3) -join ' ')" 'WARN'; return $null }
+        $q = $json | ConvertFrom-Json
+        if ($q.PSObject.Properties.Name -contains 'error' -or -not ($q.PSObject.Properties.Name -contains 'slots')) { Write-Log "queue check failed: $json" 'WARN'; return $null }
+        Publish-ViaSpecNotices $q
+        return $q
+    } catch { Write-Log "queue check failed: $_" 'WARN'; return $null }
+}
+# The ONE comment on a slice the first time it is treated as auto-approved through its spec (check-approval.ps1
+# -List `viaSpec`, noticed = false). Runner side (same gh and rights as the queue check), never in a dry run;
+# a failure is a warning and is retried by the next queue check.
+$script:ViaSpecNoticed = @{}
+function Publish-ViaSpecNotices {
+    param($Q)
+    if ($DryRun -or $null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'viaSpec')) { return }
+    foreach ($v in @($Q.viaSpec | Where-Object { $_ -and -not $_.noticed })) {
+        $n = [int]$v.issue
+        if ($script:ViaSpecNoticed.ContainsKey($n)) { continue }
+        try {
+            $body = Format-ViaSpecNotice -Spec ([int]$v.spec) -ApprovedAt "$($v.specApprovedAt)" -Who $OwnerName -Marker $script:Marker
+            $tmp = Join-Path $script:LoopHome "state\viaspec-$n.json"
+            [IO.File]::WriteAllText($tmp, (@{ body = $body } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
+            $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $out = & $script:GhExe api "repos/$($script:HubRepo)/issues/$n/comments" -X POST --input $tmp 2>&1 | ForEach-Object { "$_" }
+            $code = $LASTEXITCODE; $ErrorActionPreference = $prev
+            if ($code -eq 0) { $script:ViaSpecNoticed[$n] = $true; Write-Log "#${n}: auto-approved via spec #$($v.spec); notice posted" }
+            else { Write-Log "#${n}: could not post the auto-approval notice: $((@($out) | Select-Object -Last 1))" 'WARN' }
+        } catch { Write-Log "#${n}: auto-approval notice failed: $_" 'WARN' }
     }
-    Remove-Item env:RESEND_API_KEY -ErrorAction SilentlyContinue
-    $env:INNOVATION_LOOP_HOME = $script:LoopHome
-    $env:INNOVATION_LOOP_SCRIPTS = $ScriptsDir
+}
+# 'via-spec #<spec>' when the queue says the issue is auto-approved through its spec, else 'label'.
+function Get-QueueApproval {
+    param($Q, [int]$Issue)
+    if ($null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'approvals') -or $null -eq $Q.approvals) { return 'label' }
+    $p = $Q.approvals.PSObject.Properties | Where-Object { $_.Name -eq "$Issue" } | Select-Object -First 1
+    if ($p -and "$($p.Value)") { return "$($p.Value)" }
+    return 'label'
+}
+function Format-QueueLine {
+    param($Q)
+    if ($null -eq $Q) { return 'unknown (queue check failed)' }
+    $b = @($Q.buildable | Where-Object { $null -ne $_ }); $r = @($Q.retry | Where-Object { $null -ne $_ })
+    $s = "buildable [$(@($b | ForEach-Object { "#$_" }) -join ' ')]"
+    if ($r.Count -gt 0) { $s += " (automatic retry: $(@($r | ForEach-Object { "#$_" }) -join ' '))" }
+    $vs = @($b | Where-Object { (Get-QueueApproval $Q ([int]$_)) -ne 'label' })
+    if ($vs.Count -gt 0) { $s += " (approval: $(@($vs | ForEach-Object { "#$_ $(Get-QueueApproval $Q ([int]$_))" }) -join ', '))" }
+    $s += "; proposal slots free $($Q.slots.free) of $($Q.slots.cap) (awaiting review: $(@($Q.slots.awaitingReview | ForEach-Object { "#$_" }) -join ' '))"
+    $sp = @($Q.specs | Where-Object { $_ -and $_.approved })
+    if ($sp.Count -gt 0) { $s += "; approved specs: $(@($sp | ForEach-Object { "#$($_.issue) ($(@($_.toOpen).Count) of $($_.of) slices still to open)" }) -join ', ')" }
+    $w = Format-WaitingOnOwner -Waiting @($Q.waitingOnOwner) -Who $OwnerName
+    if ($w) { $s += "; $w" }
+    return $s
+}
+function Get-QueueLabels {
+    param($Q, [int]$Issue)
+    if ($null -eq $Q -or $null -eq $Q.labels) { return @() }
+    $p = $Q.labels.PSObject.Properties | Where-Object { $_.Name -eq "$Issue" } | Select-Object -First 1
+    if ($p) { return @($p.Value) }
+    return @()
+}
+
+# Records a session left for issue $n in one repo (merge-pr / deploy / rollback write them as <kind>-<n>-<repo>).
+function Read-RepoState { param([string]$Kind, [int]$Issue, [string]$RepoName) return (Read-State "$Kind-$Issue-$RepoName") }
+
+# The ops hub's plan-budget verdict, read now (the runner reads it, never claude; before every session, so a
+# verdict that changes mid-run is respected). Fails open: see gate-rules.ps1 Get-PlanBudgetVerdict.
+function Get-PlanBudget {
+    $path = $BudgetFile; if (-not $path) { $path = $script:PlanBudgetPath }
+    $text = $null; $err = ''
+    if (-not $IgnoreBudget) {
+        try { if (Test-Path -LiteralPath $path -PathType Leaf) { $text = [IO.File]::ReadAllText($path) } } catch { $err = "$($_.Exception.Message)" }
+    }
+    $b = Get-PlanBudgetVerdict -Text $text -ReadError $err -Ignore:$IgnoreBudget
+    if ($b.Warn) { Write-Log "budget: $($b.Reason) [$path]" 'WARN' } else { Write-Log "budget: $($b.Reason)" }
+    return $b
+}
+# Phase A's buildable issues split by the budget verdict (Allowed / Deferred), from a queue.
+function Split-QueueByBudget {
+    param($Q, [string]$Verdict)
+    $b = @($Q.buildable | Where-Object { $null -ne $_ })
+    $lo = @{}; foreach ($n in $b) { $lo[[int]$n] = @(Get-QueueLabels $Q ([int]$n)) }
+    return (Split-BuildableByBudget -Buildable $b -LabelsOf $lo -Config $Cfg -Override $Model -Verdict $Verdict)
+}
+function Format-Deferred {
+    param([object[]]$Deferred, [string]$Verdict)
+    return "plan budget ${Verdict}: deferred $(@($Deferred | ForEach-Object { "#$($_.Issue) ($($_.Model))" }) -join ', '); still approved, built by a later run once the verdict allows"
+}
+
+# After a build session: an issue it took that still carries loop:in-progress was left mid-build (the
+# session was killed at its time limit, hit max turns, or just stopped). Mark it loop:failed with a failure
+# marker (gate-rules.ps1 Get-UnfinishedFailure: timeout / max-turns are retried once; anything merged in
+# that session is not). Never throws.
+function Close-UnfinishedIssues {
+    param([int[]]$Issues, [string]$EndClass, [datetime]$Since, [int]$LimitMinutes)
+    $closed = @()
+    foreach ($n in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
+        try {
+            $i = Get-GhJson @('api', "repos/$($script:HubRepo)/issues/$n")
+            $labels = @($i.labels | ForEach-Object { $_.name })
+            if ($i.state -ne 'open' -or $labels -notcontains 'loop:proposal' -or $labels -notcontains 'loop:in-progress') { continue }
+            $mergeSha = ''
+            foreach ($repo in $script:Repos) {
+                $rec = Read-RepoState 'merge' $n $repo.name
+                if ($rec -and $rec.mergedUtc -and ([datetime]$rec.mergedUtc).ToUniversalTime() -ge $Since.ToUniversalTime()) { $mergeSha = (@($mergeSha, "$($repo.name)@$($rec.mergeSha)") | Where-Object { $_ }) -join ', ' }
+            }
+            $f = Get-UnfinishedFailure -EndClass $EndClass -MergeSha $mergeSha -TimeoutMinutes $LimitMinutes -Who $OwnerName
+            $body = "$($script:Marker)`n$(Format-FailureMarker -Class $f.Class -Outcome 'failed')`n## Synopsis`n`n$($f.Synopsis)`n`n## Details`n`n" +
+                "Run ``$RunId`` ended its build session with ``$EndClass`` while this issue still carried loop:in-progress. Failure class ``$($f.Class)``: $(Get-FailureDescription $f.Class). " +
+                "Posted by run-loop.ps1 after the session stopped; see logs\run-$RunId.log and the session transcript.`n"
+            $bp = Join-Path $script:LoopHome "work\unfinished-$RunId-$n.md"
+            [IO.File]::WriteAllText($bp, $body, (New-Object Text.UTF8Encoding $false))
+            Invoke-Gh -Arguments @('issue', 'comment', "$n", '-R', $script:HubRepo, '--body-file', $bp) -Quiet | Out-Null
+            Invoke-Gh -Arguments @('issue', 'edit', "$n", '-R', $script:HubRepo, '--add-label', 'loop:failed', '--remove-label', 'loop:in-progress') -Quiet | Out-Null
+            Write-Log "unfinished #${n}: marked loop:failed, class $($f.Class)$(if ($mergeSha) { " (merged as $mergeSha, not verified)" })" 'WARN'
+            $closed += $n
+        } catch { Write-Log "unfinished #${n}: could not mark it failed: $_" 'WARN' }
+    }
+    return $closed
+}
+
+# The loop's clones (never the owner's checkout, never a live dir), reset to origin/main before each session.
+function Reset-Clones {
+    $lines = @()
+    foreach ($repo in $script:Repos) {
+        $clone = Get-ClonePath $repo.name
+        if (-not (Test-Path -LiteralPath (Join-Path $clone '.git'))) {
+            Invoke-Native -File 'git' -Arguments @('clone', $repo.cloneUrl, $clone) | Out-Null
+        }
+        Invoke-Git -Repo $clone -Arguments @('fetch', 'origin', '--prune') -Quiet | Out-Null
+        Invoke-Git -Repo $clone -Arguments @('checkout', '-f', '-B', 'main', 'origin/main') -Quiet | Out-Null
+        Invoke-Git -Repo $clone -Arguments @('reset', '--hard', 'origin/main') -Quiet | Out-Null
+        $keep = @(); foreach ($k in @(Get-Cfg 'cleanKeep' @('node_modules', '.cache', 'target'))) { $keep += @('-e', $k) }
+        Invoke-Git -Repo $clone -Arguments (@('clean', '-fdx') + $keep) -Quiet | Out-Null
+        $sha = Get-GitValue -Repo $clone -Arguments @('rev-parse', 'origin/main')
+        $lines += "- CLONE[$($repo.name)]: $clone   ($($repo.slug), reset to origin/main $sha)"
+    }
+    return $lines
+}
+
+# Spec progress (runner side): ONE "## Spec progress" checklist comment per approved spec, created and then
+# edited in place (re-read and marker-checked before every edit, so the loop only ever edits its own
+# checklist on the hub repo), and the spec closed once every slice is done. $Specs: the `specs` array of
+# check-approval.ps1 -List (approval verified there). -NoPost writes the bodies to state\spec only. Never throws.
+function Publish-SpecProgress {
+    param([object[]]$Specs = @(), [switch]$NoPost)
+    $done = @()
+    foreach ($s in @($Specs | Where-Object { $_ -and $_.approved })) {
+        try {
+            $n = [int]$s.issue
+            $plan = [pscustomobject]@{ Issue = $n; Of = [int]$s.of; Valid = [bool]$s.valid; Problem = "$($s.problem)"; Complete = [bool]$s.complete; Duplicates = @()
+                Slices = @(@($s.slices) | Where-Object { $_ } | ForEach-Object { [pscustomobject]@{ K = [int]$_.k; Title = "$($_.title)"; Issue = [int]$_.issue; Status = "$($_.status)"; Done = [bool]$_.done } }) }
+            $body = Format-SpecProgress -Plan $plan -RunId $RunId -Marker $script:Marker -Who $OwnerName
+            $dir = Join-Path $script:LoopHome 'state\spec'
+            if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            $sp = Join-Path $dir "spec-$n.json"
+            $st = $null; if (Test-Path -LiteralPath $sp) { $st = [IO.File]::ReadAllText($sp) | ConvertFrom-Json }
+            $key = (($body -split "`n") | Where-Object { $_ -notmatch '^<sub>Updated by the runner' }) -join "`n"
+            $hash = [BitConverter]::ToString((New-Object Security.Cryptography.SHA256Managed).ComputeHash([Text.Encoding]::UTF8.GetBytes($key))) -replace '-', ''
+            if ($NoPost) { [IO.File]::WriteAllText((Join-Path $dir "spec-$n.md"), $body, (New-Object Text.UTF8Encoding $false)); $done += $n; continue }
+            if ($st -and "$($st.hash)" -eq $hash -and -not $plan.Complete) { continue }
+            $iss = Get-GhJson @('api', "repos/$($script:HubRepo)/issues/$n")
+            $labels = @($iss.labels | ForEach-Object { $_.name })
+            if ($iss.state -ne 'open' -or $labels -notcontains 'loop:spec' -or $labels -notcontains 'loop:proposal') { Write-Log "spec progress: #$n is not an open loop:spec issue; not touching it" 'WARN'; continue }
+            $tmp = Join-Path $dir "spec-$n.body.json"
+            [IO.File]::WriteAllText($tmp, (@{ body = $body } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
+            $cid = [long]0; if ($st) { $cid = [long]$st.commentId }
+            if ($cid -gt 0) {
+                $own = $false
+                try { $c = Get-GhJson @('api', "repos/$($script:HubRepo)/issues/comments/$cid"); $own = ("$($c.issue_url)" -like "*/repos/$($script:HubRepo)/issues/$n") -and "$($c.body)".Contains($script:Marker) -and "$($c.body)".Contains($script:SpecProgressMarker) } catch { }
+                if ($own) { $null = Invoke-Gh -Arguments @('api', "repos/$($script:HubRepo)/issues/comments/$cid", '-X', 'PATCH', '--input', $tmp) -Quiet }
+                else { Write-Log "spec progress: comment $cid is not this loop's checklist on #$n; posting a new one" 'WARN'; $cid = 0 }
+            }
+            if ($cid -le 0) {
+                $r = Invoke-Gh -Arguments @('api', "repos/$($script:HubRepo)/issues/$n/comments", '-X', 'POST', '--input', $tmp) -Quiet
+                $cid = [long]((($r.Output -join "`n") | ConvertFrom-Json).id)
+            }
+            [IO.File]::WriteAllText($sp, (@{ issue = $n; commentId = $cid; hash = $hash; runId = $RunId } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
+            Write-Log "spec progress: #$n checklist updated ($(@($plan.Slices | Where-Object { $_.Done }).Count) of $($plan.Slices.Count) slices done)"
+            if ($plan.Complete) {
+                Invoke-Gh -Arguments @('issue', 'close', "$n", '-R', $script:HubRepo, '--reason', 'completed') -Quiet | Out-Null
+                Write-Log "spec progress: every slice of #$n is done; closed the spec"
+            }
+            $done += $n
+        } catch { Write-Log "spec progress: #$($s.issue): $_" 'WARN' }
+    }
+    return @($done)
+}
+
+# The run header + the LOOP.md sections one session needs. Returns the prompt path.
+function New-SessionPrompt {
+    param([string]$Kind, [int]$Issue = 0, [string]$SessionModel, [int]$Turns, [datetime]$SessionDeadline, $Q, [string[]]$CloneLines, [string]$LiveHead,
+        [string]$ServerUsed = '', [string]$BuiltLine = '')
+    $loopMd = [IO.File]::ReadAllText((Join-Path $ScriptsDir 'LOOP.md'))
+    $name = $Kind; if ($Issue -gt 0) { $name = "$Kind-$Issue" }
+    $lines = @()
+    if ($Kind -eq 'build') {
+        $sections = @(0, 1, 2, 3, 4, 6)
+        $retry = 'no'; if (@($Q.retry) -contains $Issue) { $retry = 'yes: the ONE automatic retry (section 3 steps 4 and 6)' }
+        $lines += "# $title innovation loop run ${RunId}: build session for issue #$Issue"
+        $lines += ''
+        $lines += "- JOB: build issue #$Issue, and only it (section 3). Then end (section 6). This session opens no proposals: a separate session does that."
+        $lines += "- ISSUE: $Issue   (retry: $retry)"
+        $ap = Get-QueueApproval $Q $Issue
+        if ($ap -ne 'label') { $lines += "- APPROVAL: $ap   (a slice auto-approved by $OwnerName's approval of its spec: it has no `approved` label of its own and needs none; check-approval.ps1 -Issue $Issue shows approval via-spec. Say `approval: $ap` in your summary.)" }
+        else { $lines += "- APPROVAL: label ($OwnerName added `approved`)" }
+        $sdNote = ''; if ($script:ServerEnabled -and $serverDeploy -notlike 'available*') { $sdNote = "($serverWhy) -> if this change needs a server deploy, skip it (section 3 step 3)" }
+        $lines += "- SERVER_DEPLOY: $serverDeploy   $sdNote"
+        $su = 'no'; if ($ServerUsed) { $su = "yes ($ServerUsed): at most one server deploy per run, so if this change needs one, skip it (section 3 step 3)" }
+        $lines += "- SERVER_DEPLOYED_THIS_RUN: $su"
+        if ($BuiltLine) { $lines += "- EARLIER_THIS_RUN: $BuiltLine" }
+    } else {
+        $sections = @(0, 1, 2, 5, 6)
+        $lines += "# $title innovation loop run ${RunId}: proposal session (Phase B)"
+        $lines += ''
+        $lines += '- JOB: Phase B only (section 5): open the approved specs'' next slices, then new proposals, within the slots. Build, merge and deploy nothing. Then end (section 6).'
+        if ($BuiltLine) { $lines += "- BUILT_THIS_RUN: $BuiltLine   (separate build sessions; mention them in your summary)" }
+        $lines += "- FOCUS: $focus"
+        $slot = 'unknown (queue check failed): run check-approval.ps1 -Slots'
+        if ($Q) { $slot = "newThisRun $($Q.slots.newThisRun) (free $($Q.slots.free) of $($Q.slots.cap)); a new spec allowed: $(if ($Q.slots.mayOpenSpec) { 'yes' } else { 'no' })" }
+        $lines += "- SLOTS: $slot   (check-approval.ps1 -Slots stays the authority)"
+        $sl = @($Q.slicesToOpen | Where-Object { $_ })
+        if ($sl.Count -gt 0) {
+            $items = @($sl | ForEach-Object { '#{0} slice {1} of {2} "{3}"' -f $_.spec, $_.k, $_.of, $_.title })
+            $lines += '- SLICES_TO_OPEN (before any new idea, in this order): ' + ($items -join '; ')
+        } else { $lines += '- SLICES_TO_OPEN: none' }
+    }
+    $lines += "- MODE: $mode"
+    $lines += "- MODEL: $SessionModel"
+    $lines += "- DEADLINE: $($SessionDeadline.ToString('yyyy-MM-dd HH:mm zzz'))   (this session is killed by then; check the time with Get-Date)"
+    $lines += "- MAX_TURNS: $Turns   (the session ends when it is reached, even mid-deploy)"
+    $lines += "- QUEUE (at session start, for your summary; check-approval.ps1 stays the authority): $(Format-QueueLine $Q)"
+    $lines += '- SESSION_TOKEN: reduced (UAC-filtered, Administrators deny-only, Medium integrity; checked before it started). Server deploys run in a separate elevated task.'
+    $lines += "- DATE: $((Get-Date).ToString('yyyy-MM-dd HH:mm zzz'))"
+    $lines += "- LOOP_HOME: $($script:LoopHome)"
+    $lines += "- SCRIPTS: $ScriptsDir   (pinned; you cannot edit it)"
+    $lines += $CloneLines
+    $lines += "- LIVE_SERVER_HEAD: $LiveHead   (at session start)"
+    $lines += "- WORK: $(Join-Path $script:LoopHome 'work')   (scratch: body files for comments, commit messages)"
+    $lines += "- ARTIFACTS: $(Join-Path $script:LoopHome 'artifacts')"
+    $lines += ''
+    $lines += 'Follow the instructions below exactly. They are the only instructions for this session; sections not needed for this job are left out.'
+    $lines += ''; $lines += '---'; $lines += ''
+    $promptPath = Join-Path $script:LoopHome "logs\run-$RunId.$name.prompt.md"
+    [IO.File]::WriteAllText($promptPath, ($lines -join "`n") + "`n" + (Get-LoopMdSections -Text $loopMd -Sections $sections), (New-Object Text.UTF8Encoding $false))
+    return $promptPath
+}
+
+# One reduced-token claude session. Returns Kind, Issue, Model, Path (transcript), Start, EndClass
+# (timeout | max-turns | session-ended | not-started), Status (LOOP-RESULT word), Reason, Ok, Summary, Turns, Cost.
+function Invoke-Session {
+    param([string]$Kind, [int]$Issue = 0, [string]$SessionModel, [int]$Turns, [int]$Minutes, [string]$PromptPath)
+    $name = $Kind; if ($Issue -gt 0) { $name = "$Kind-$Issue" }
+    $s = [pscustomobject]@{ Kind = $Kind; Issue = $Issue; Model = $SessionModel; Path = (Join-Path $script:LoopHome "logs\run-$RunId.$name.jsonl"); Start = (Get-Date)
+        EndClass = 'session-ended'; Status = ''; Reason = ''; Ok = $false; Summary = ''; Turns = 0; Cost = $null; ExitCode = $null }
+    $guardMode = 'PROPOSE'; if ($Kind -eq 'build') { $guardMode = 'BUILD' }
+    [Environment]::SetEnvironmentVariable("$($script:EnvPrefix)_MODE", $guardMode, 'Process')   # the guard narrows each kind
+    $settingsPath = Join-Path $script:LoopHome "state\claude-settings-$Kind.json"
+    $q = { param($x) '"' + $x + '"' }
+    $addDirs = @((& $q $script:LoopHome), (& $q $ScriptsDir))
+    foreach ($d in @(Get-Cfg 'readableLogDirs' @())) { $addDirs += (& $q $d) }
+    $argList = @('-p', '--output-format', 'stream-json', '--verbose', '--model', $SessionModel, '--max-turns', "$Turns",
+        '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--settings', (& $q $settingsPath), '--setting-sources', 'local',
+        '--strict-mcp-config', '--add-dir') + $addDirs
+    $argString = $argList -join ' '
+    Write-Log "session $name start: model=$SessionModel maxTurns=$Turns timeout=${Minutes}m guardMode=$guardMode"
+    Write-Log "claude command: `"$ClaudeExe`" $argString  < $PromptPath"
+    $errPath = Join-Path $script:LoopHome "logs\run-$RunId.$name.err.log"
+    try {
+        Write-Log "run-loop token: $(Get-TokenState)"
+        $run = Start-ReducedAndWait -File $ClaudeExe -ArgumentString $argString -WorkDir (Join-Path $script:LoopHome 'work') -StdIn $PromptPath -StdOut $s.Path -StdErr $errPath -TimeoutMinutes $Minutes
+        $s.ExitCode = $run.ExitCode
+        if ($run.TimedOut) { $s.EndClass = 'timeout'; Write-Log "session $name exceeded $Minutes minutes (process tree killed)" 'ERROR' }
+        else { Write-Log "session $name claude pid $($run.Pid) exit code $($run.ExitCode)" }
+    } catch { Write-Log "session ${name}: $_" 'ERROR'; $s.Reason = "could not run: $_"; $s.EndClass = 'not-started' }
+    $result = $null
+    if (Test-Path -LiteralPath $s.Path) { foreach ($line in [IO.File]::ReadAllLines($s.Path)) { if ($line -match '"type"\s*:\s*"result"') { try { $result = $line | ConvertFrom-Json } catch { } } } }
+    if ($result) {
+        $s.Summary = "$($result.result)"; $s.Turns = $result.num_turns; $s.Cost = $result.total_cost_usd
+        # cost is the API-equivalent figure claude reports; on a Max subscription it is usage, not a bill.
+        Write-Log ("result: session={0} subtype={1} is_error={2} turns={3} cost={4}" -f $name, $result.subtype, $result.is_error, $result.num_turns, $result.total_cost_usd)
+        if ("$($result.subtype)" -eq 'error_max_turns') { $s.EndClass = 'max-turns' }
+        $m = [regex]::Match($s.Summary, 'LOOP-RESULT:\s*([A-Z\-]+)[ \t]*([^\r\n]*)')
+        $s.Status = $m.Groups[1].Value; $s.Reason = $m.Groups[2].Value.Trim()
+        $s.Ok = ($s.ExitCode -eq 0 -and -not $result.is_error)
+    } elseif (-not $s.Reason) {
+        $s.Reason = "no result message in the transcript ($($s.EndClass))"; Write-Log "session ${name}: no result message in the transcript" 'ERROR'
+    }
+    Write-Log "session $name end: LOOP-RESULT $($s.Status) $($s.Reason)"
+    return $s
+}
+
+$exitCode = 1
+$queue = $null; $finalQueue = $null; $res = $null
+$sessions = New-Object System.Collections.ArrayList
+$problems = New-Object System.Collections.ArrayList
+$runNotes = New-Object System.Collections.ArrayList
+$serverDeploy = 'none (this project has no server target)'; $serverWhy = ''
+$focus = ''
+try {
+    # ---- environment ------------------------------------------------------------------------
+    Add-GhToPath
+    foreach ($n in (Clear-SecretEnv)) { Write-Log "unset env var $n for this run" }
+    [Environment]::SetEnvironmentVariable("$($script:EnvPrefix)_HOME", $script:LoopHome, 'Process')
+    [Environment]::SetEnvironmentVariable("$($script:EnvPrefix)_SCRIPTS", $ScriptsDir, 'Process')
     $env:INNOVATION_LOOP_RUN_ID = $RunId
     $edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
-    if (Test-Path -LiteralPath $edge) { $env:CHROME_PATH = $edge }   # for the optional Lighthouse look in Phase B
+    if (Test-Path -LiteralPath $edge) { $env:CHROME_PATH = $edge }
 
-    # ---- preflight --------------------------------------------------------------------
-    foreach ($t in @($ClaudeExe, $script:GhExe)) { if (-not (Test-Path -LiteralPath $t)) { throw "missing $t" } }
+    # ---- preflight ----------------------------------------------------------------------------
+    foreach ($t in @($ClaudeExe, $script:GhExe, $script:NodeExe)) { if (-not (Test-Path -LiteralPath $t)) { throw "missing $t" } }
     if ($ScriptsDir -match '\s') { throw "scripts dir '$ScriptsDir' contains whitespace; the permission rules need a path without spaces" }
-    foreach ($c in 'git', 'node', 'yarn') { if (-not (Get-Command $c -ErrorAction SilentlyContinue)) { throw "$c not on PATH" } }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'git not on PATH' }
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     & $script:GhExe auth status *> $null; $ghOk = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $prev
     if (-not $ghOk) { throw 'gh is not authenticated' }
-    # This runner is NOT elevated (the outer invocation dropped rights; checked above). API deploys go
-    # through the separate elevated innovation-loop-api task via api-request.ps1; check it is there.
-    $apiTask = 'missing'
-    $q = Invoke-Native -File "$env:SystemRoot\System32\schtasks.exe" -Arguments @('/query', '/tn', 'innovation-loop-api', '/fo', 'csv', '/nh') -AllowFail -Quiet
-    if ($q.Code -eq 0) {
-        $line = @($q.Output | Where-Object { $_ -match 'innovation-loop-api' }) | Select-Object -First 1
-        if ($line -match '"Disabled"') { $apiTask = 'disabled' } else { $apiTask = 'registered' }
-    }
-    if ($apiTask -eq 'registered' -and -not $ProposeOnly -and -not $DryRun) {
-        # prove the non-elevated -> elevated round trip works before Phase A relies on it (validation only)
-        $nr = Invoke-Native -File "$PSHOME\powershell.exe" -Arguments @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-            '-File', "$ScriptsDir\api-request.ps1", '-Mode', 'noop', '-TimeoutMinutes', '3') -AllowFail -Quiet
-        if ($nr.Code -eq 0) { $apiTask = 'ready' } else { $apiTask = 'unreachable'; Write-Log ("api noop round trip failed (exit {0}): {1}" -f $nr.Code, (($nr.Output | Select-Object -Last 2) -join ' ')) 'WARN' }
-    }
-    Write-Log "api task: $apiTask"
-    if ($apiTask -ne 'ready' -and -not $ProposeOnly) { Write-Log 'innovation-loop-api task not ready: Phase A will skip area:backend and area:both issues' 'WARN' }
+    $elevated = Test-IsElevated
+    Write-Log "elevated=$elevated"
+    if ($elevated) { Write-Log 'run-loop itself holds an admin token (normal for a scheduled task of an admin account); every claude session is started with a reduced token' }
 
-    # ---- loop clones (never Ve's checkouts) -------------------------------------------
-    $clones = @(
-        @{ Path = $script:FrontClone; Url = $script:FrontRepoUrl },
-        @{ Path = $script:ApiClone;   Url = $script:ApiRepoUrl }
-    )
-    foreach ($cl in $clones) {
-        if (-not (Test-Path -LiteralPath (Join-Path $cl.Path '.git'))) {
-            Invoke-Native -File 'git' -Arguments @('clone', $cl.Url, $cl.Path) | Out-Null
+    # ---- precheck: anything to do at all? (no session, so it costs nothing) -----------------------
+    $queue = Get-LoopQueue
+    # plan budget (the ops hub): which sessions may start at all
+    $budget = Get-PlanBudget
+    $deferred = @()
+    if ($mode -eq 'FULL' -and $null -ne $queue -and $budget.Verdict -ne 'hold') { $deferred = @((Split-QueueByBudget $queue $budget.Verdict).Deferred) }
+    $pbKind = 'propose'
+    $pbOk = Test-BudgetAllowsModel -Verdict $budget.Verdict -Model (Get-SessionModel -Kind $pbKind -Config $Cfg -Override $Model)
+    $pre = Get-PrecheckDecision -Queue $queue -Mode $mode -Budget $budget -Deferred @($deferred | ForEach-Object { $_.Issue }) -PhaseBAllowed $pbOk
+    Write-Log "queue: $(Format-QueueLine $queue)"
+    if ($deferred.Count -gt 0) { Write-Log "Phase A: $(Format-Deferred $deferred $budget.Verdict)"; [void]$runNotes.Add("Phase A: $(Format-Deferred $deferred $budget.Verdict)") }
+    Write-Log "precheck: launch=$($pre.Launch) ($($pre.Reason))"
+    if (-not $pre.Launch) {
+        $waitLine = Format-WaitingOnOwner -Waiting @($queue.waitingOnOwner) -Who $OwnerName
+        if ($pre.Hold) {
+            $sumLines = @("Precheck (no claude session started): plan budget hold.",
+                "- $($budget.Reason). Approved issues stay approved and proposals are not refilled until the verdict is normal or no-opus again.",
+                "- Queue: $(Format-QueueLine $queue).")
+        } else {
+            $sumLines = @("Precheck (no claude session started): nothing to do.",
+                "- Phase A: $(if ($mode -ne 'FULL') { "not run ($mode)" } elseif ($deferred.Count -gt 0) { Format-Deferred $deferred $budget.Verdict } else { 'no buildable approved issue' }).",
+                "- Phase B: $(if (-not $pbOk) { "the $pbKind model is not allowed by the $($budget.Reason)" } else { "no free proposal slot ($(@($queue.slots.awaitingReview).Count) proposals awaiting review, cap $($queue.slots.cap); approved and failed proposals do not count)" }).")
         }
-        Invoke-Git -Repo $cl.Path -Arguments @('fetch', 'origin', '--prune') | Out-Null
-        Invoke-Git -Repo $cl.Path -Arguments @('checkout', '-f', '-B', 'main', 'origin/main') | Out-Null
-        Invoke-Git -Repo $cl.Path -Arguments @('reset', '--hard', 'origin/main') | Out-Null
-        Invoke-Git -Repo $cl.Path -Arguments @('clean', '-fdx', '-e', 'node_modules', '-e', 'target', '-e', '.cache') | Out-Null
-        Invoke-Git -Repo $cl.Path -Arguments @('worktree', 'prune') | Out-Null
+        if ($waitLine) { $sumLines += "- $waitLine" }
+        $resLine = 'LOOP-RESULT: NOTHING-TO-DO'
+        if ($pre.Hold) { $resLine += ' plan budget hold (no claude session)' }
+        elseif ($deferred.Count -gt 0 -or -not $pbOk) { $resLine += " plan budget $($budget.Verdict) (Opus sessions deferred)" }
+        $sumLines += $resLine
+        if ($DryRun) {
+            Write-Log 'precheck: a real run would end here with NOTHING-TO-DO and no claude session (dry run: carrying on to show the plan)'
+        } else {
+            $utf8 = New-Object Text.UTF8Encoding $false
+            [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.summary.txt"), ($sumLines -join "`r`n"), $utf8)
+            $rd = [ordered]@{ runId = $RunId; mode = $mode; status = 'NOTHING-TO-DO'; precheck = $pre.Reason; claudeStarted = $false
+                totals = [ordered]@{ Turns = 0; Input = 0; Output = 0; CacheRead = 0; CacheWrite = 0; Cost = 0 }; sessions = @(); waitingOnOwner = $waitLine
+                budget = [ordered]@{ verdict = $budget.Verdict; reason = $budget.Reason; failedOpen = $budget.Warn; deferred = @($deferred | ForEach-Object { $_.Issue }) } }
+            [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.rundata.json"), ($rd | ConvertTo-Json -Depth 5), $utf8)
+            Write-Log 'result: subtype=precheck is_error=False turns=0 cost=0 (no claude session)'
+            Write-Log $resLine
+            $exitCode = 0
+            return
+        }
     }
 
-    # ---- permission settings ----------------------------------------------------------
-    # dontAsk: anything not allowlisted is denied (nobody is there to answer a prompt).
-    # The guard hook (guard.mjs) then enforces the repo/secret/never-touch rules on every call.
-    $readOnly = 'Get-ChildItem','Get-Content','Get-Item','Test-Path','Select-String','Get-Location','Set-Location','Push-Location','Pop-Location',
-        'Get-Date','Start-Sleep','ConvertFrom-Json','ConvertTo-Json','Select-Object','Where-Object','ForEach-Object','Sort-Object',
-        'Measure-Object','Group-Object','Format-List','Format-Table','Out-String','Write-Output','Write-Host','Join-Path','Split-Path',
-        'Resolve-Path','Get-Service','Invoke-WebRequest','Invoke-RestMethod','New-Item','Remove-Item','cd','dir','ls','cat','echo','type'
-    $allow = @('Read', 'Glob', 'Grep', 'Edit', 'Write', 'TodoWrite',
-        'WebFetch(domain:vekbui96.github.io)', 'WebFetch(domain:server-pc.tail0e4194.ts.net)', 'WebFetch(domain:solid-website-api.onrender.com)',
-        'PowerShell(git *)', 'PowerShell(gh *)',
-        'PowerShell(npx --yes lighthouse@12 *)',
-        # install/typecheck/build/maven all go through test-frontend.ps1 / test-api.ps1, so the session needs
-        # no yarn/cmd/mvnw rules of its own. The guard also checks every .ps1 path in a command is inside
-        # ScriptsDir and is not run-loop/install-task/lib.
-        'PowerShell(Start-Sleep)')
-    # Exactly these scripts, called by bare full path (no `&`, no quotes: Claude Code does not match
-    # allow rules against the call operator, so the scripts dir must not contain spaces).
-    foreach ($n in 'check-approval', 'test-frontend', 'test-api', 'deploy-frontend', 'rollback-frontend', 'api-request') {
-        $allow += "PowerShell($ScriptsDir\$n.ps1)"; $allow += "PowerShell($ScriptsDir\$n.ps1 *)"
+    # ---- the loop's clones (never the owner's checkout, never a live dir) ------------------------
+    $cloneLines = @(Reset-Clones)
+
+    # ---- server deploy availability ------------------------------------------------------------
+    $liveHead = ''
+    if ($script:ServerEnabled) {
+        $serverDeploy = 'unavailable'
+        try { $liveHead = Get-LiveHead } catch { $serverWhy = "cannot read the live checkout's HEAD: $_" }
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        & schtasks.exe /query /tn $script:DeployTaskName *> $null; $taskExists = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = $prev
+        if (-not $taskExists) { $serverWhy = "scheduled task $($script:DeployTaskName) is not installed (install-task.ps1)" }
+        else {
+            $stale = Get-StaleElevatedFiles -ScriptsDir $ScriptsDir
+            if ($stale.Count -gt 0) { $serverWhy = "the elevated copy differs from this checkout ($($stale -join ', ')); re-run install-task.ps1 -ElevatedOnly elevated" }
+            elseif ($DryRun) { $serverDeploy = 'available (not selftested: dry run)' }
+            elseif ($ProposeOnly) { $serverDeploy = 'not needed'; $serverWhy = "$mode builds nothing" }
+            else {
+                $self = Invoke-ElevatedRequest -Mode selftest -TimeoutMinutes 3
+                if ($self.status -eq 'ok') { $serverDeploy = 'available' } else { $serverWhy = "elevated selftest: $($self.status) $($self.message)" }
+            }
+        }
     }
-    foreach ($r in $readOnly) { $allow += "PowerShell($r)"; $allow += "PowerShell($r *)" }
-    $deny = @('Bash', 'Agent', 'Task', 'NotebookEdit', 'WebSearch', 'PowerShell(yarn *)', 'PowerShell(cmd *)', 'PowerShell(powershell *)',
-        'PowerShell(npm *)', 'PowerShell(git push --force*)', 'PowerShell(git push -f*)')
-    $settings = [ordered]@{
-        permissions = [ordered]@{ defaultMode = 'dontAsk'; allow = $allow; deny = $deny }
-        hooks = @{ PreToolUse = @(@{ matcher = '*'; hooks = @(@{ type = 'command'; command = "node `"$ScriptsDir\guard.mjs`""; timeout = 30 }) }) }
+    Write-Log "SERVER_DEPLOY=$serverDeploy $serverWhy liveHead=$liveHead"
+
+    # ---- permission settings, one file per session kind ----------------------------------------
+    # dontAsk: anything not allowlisted is denied (nobody is there to answer a prompt). guard.mjs then
+    # enforces the repo/secret/never-touch/one-command rules on every call, narrowed by the session kind.
+    $readOnly = 'Get-ChildItem', 'Get-Content', 'Get-Item', 'Test-Path', 'Select-String', 'Get-Date', 'Start-Sleep', 'ConvertFrom-Json',
+        'ConvertTo-Json', 'Select-Object', 'Where-Object', 'Sort-Object', 'Measure-Object', 'Format-List', 'Format-Table', 'Out-String',
+        'Write-Output', 'Join-Path', 'Split-Path', 'Resolve-Path', 'Get-Service', 'Get-FileHash', 'Invoke-WebRequest', 'Invoke-RestMethod',
+        'New-Item', 'Remove-Item'
+    $baseAllow = @('Read', 'Glob', 'Grep', 'Edit', 'Write', 'TodoWrite', 'PowerShell(git *)', 'PowerShell(gh *)')
+    foreach ($d in @(Get-Cfg 'web.fetchDomains' @())) { $baseAllow += "WebFetch(domain:$d)" }
+    foreach ($r in $readOnly) { $baseAllow += "PowerShell($r)"; $baseAllow += "PowerShell($r *)" }
+    $deny = @('Bash', 'Agent', 'Task', 'NotebookEdit', 'WebSearch', 'Skill',
+        'PowerShell(npm *)', 'PowerShell(npm.cmd *)', 'PowerShell(npx *)', 'PowerShell(yarn *)', 'PowerShell(node *)', 'PowerShell(cmd *)',
+        'PowerShell(powershell *)', 'PowerShell(pwsh *)', 'PowerShell(schtasks *)', 'PowerShell(schtasks.exe *)', 'PowerShell(mvn *)', 'PowerShell(mvnw *)',
+        'PowerShell(Start-ScheduledTask *)', 'PowerShell(Restart-Service *)', 'PowerShell(docker *)',
+        'PowerShell(git push --force*)', 'PowerShell(git push -f*)', 'PowerShell(gh pr merge *)', 'PowerShell(gh auth *)')
+    # Exactly these scripts, called by bare full path (no `&`, no quotes). The elevated task is triggered
+    # ONLY from inside the scripts (fixed task name); the session has no schtasks rule and the guard blocks it.
+    $scriptsFor = @{
+        build   = @(Get-Cfg 'sessionScripts' @('check-approval', 'test-gate', 'wait-ci', 'merge-pr', 'deploy', 'rollback'))
+        propose = @('check-approval')
     }
-    $settingsPath = Join-Path $script:LoopHome 'state\claude-settings.json'
     $utf8 = New-Object Text.UTF8Encoding $false
-    [IO.File]::WriteAllText($settingsPath, ($settings | ConvertTo-Json -Depth 10), $utf8)
-
-    # ---- prompt -------------------------------------------------------------------------
-    $loopMd = [IO.File]::ReadAllText((Join-Path $ScriptsDir 'LOOP.md'))
-    # FOCUS.md is Ve's steering file for Phase B, read from the pinned scripts dir like LOOP.md (the guard blocks
-    # the session from writing anything under innovation/). It counts as empty when nothing but whitespace, HTML
-    # comments and markdown headings is left; then the header says there is none and the session behaves as before.
-    $focusPath = Join-Path $ScriptsDir 'FOCUS.md'
-    $focusState = 'none'
-    if (Test-Path -LiteralPath $focusPath) {
-        $ft = [IO.File]::ReadAllText($focusPath)
-        $ft = [regex]::Replace($ft, '(?s)<!--.*?-->', '')
-        $ft = [regex]::Replace($ft, '(?m)^[ \t]*#.*$', '')
-        if ($ft.Trim()) { $focusState = 'present' }
+    foreach ($kind in $scriptsFor.Keys) {
+        $allow = @($baseAllow)
+        foreach ($n in $scriptsFor[$kind]) { $allow += "PowerShell($ScriptsDir\$n.ps1)"; $allow += "PowerShell($ScriptsDir\$n.ps1 *)" }
+        $settings = [ordered]@{
+            permissions = [ordered]@{ defaultMode = 'dontAsk'; allow = $allow; deny = $deny }
+            hooks       = @{ PreToolUse = @(@{ matcher = '*'; hooks = @(@{ type = 'command'; command = "node `"$ScriptsDir\guard.mjs`""; timeout = 30 }) }) }
+        }
+        [IO.File]::WriteAllText((Join-Path $script:LoopHome "state\claude-settings-$kind.json"), ($settings | ConvertTo-Json -Depth 10), $utf8)
     }
-    $focusNote = 'none (propose from your own judgment; section 5)'
-    if ($focusState -eq 'present') { $focusNote = "$focusPath   (Ve's steering file: read it first in Phase B; read-only)" }
-    $runStart = Get-Date
-    $cutoff = $runStart.AddMinutes([math]::Floor($TimeoutMinutes * $NextBuildCutoffPercent / 100))
-    $buildsNote = "Phase A builds at most $MaxBuilds approved issue(s), strictly one at a time; see section 3, step 13"
-    if ($ProposeOnly) { $buildsNote = 'unused: PROPOSE_ONLY' }
-    Write-Log "focus file: $focusState ($focusPath); max builds $MaxBuilds; next-build cutoff $($cutoff.ToString('HH:mm')) ($NextBuildCutoffPercent% of $TimeoutMinutes min)"
-    $header = @"
-# Innovation loop run $RunId
 
-- MODE: $mode   ($( if ($ProposeOnly) { 'Phase B only. Do NOT run Phase A in any form.' } else { 'Phase A, then Phase B.' } ))
-- API_TASK: $apiTask   ($( if ($apiTask -eq 'ready') { 'API deploys/rollbacks are possible via api-request.ps1.' } else { 'skip area:backend and area:both issues in Phase A.' } ))
-- MAX_BUILDS: $MaxBuilds   ($buildsNote)
-- DATE: $($runStart.ToString('yyyy-MM-dd HH:mm zzz'))   (run start; claude is killed $TimeoutMinutes minutes after it, at $($runStart.AddMinutes($TimeoutMinutes).ToString('HH:mm')))
-- NEXT_BUILD_CUTOFF: $($cutoff.ToString('yyyy-MM-dd HH:mm zzz'))   (never START another Phase A build at or after this local time; check with Get-Date)
-- MAX_TURNS: $MaxTurns
-- FOCUS: $focusNote
-- LOOP_HOME: $($script:LoopHome)
-- SCRIPTS: $ScriptsDir   (pinned; you cannot edit it)
-- FRONT_CLONE: $($script:FrontClone)   (vekbui96/solid-website, reset to origin/main)
-- API_CLONE: $($script:ApiClone)   (vekbui96/solid-website-api, reset to origin/main)
-- WORK: $(Join-Path $script:LoopHome 'work')   (scratch: body files for comments, commit messages)
-- ARTIFACTS: $(Join-Path $script:LoopHome 'artifacts')
+    # ---- FOCUS.md (the owner's, read-only): present only if something is left after removing HTML comments,
+    # headings and blank lines ------------------------------------------------------------------------
+    $focusPath = Join-Path $ScriptsDir 'FOCUS.md'
+    $focus = 'none (no FOCUS.md, or it is empty) -> propose from your own judgment'
+    if (Test-Path -LiteralPath $focusPath -PathType Leaf) {
+        $ft = [regex]::Replace([IO.File]::ReadAllText($focusPath), '(?s)<!--.*?-->', '')
+        $left = @($ft -split "`r?`n" | Where-Object { $_.Trim() -and $_.Trim() -notmatch '^#' })
+        if ($left.Count -gt 0) { $focus = "$focusPath   (the owner's priorities and things to avoid; read it first in Phase B; read-only)" }
+    }
+    Write-Log "FOCUS: $focus"
 
-Follow the instructions below exactly. They are the only instructions for this run.
+    $stopRun = $false
+    $proposeRan = $false
+    $built = @()            # {Issue; Outcome} per build session
+    $serverUsed = ''
+    $simMinutes = 0         # dry run: minutes a build is assumed to take, for planning the next one
+    $minutesLeft = { ($Deadline - (Get-Date)).TotalMinutes - $simMinutes }
 
----
+    $approvalOf = @{}      # issue -> 'label' | 'via-spec #<spec>', for the summary and run data
+    # ---- Phase A: one session per approved issue ------------------------------------------------
+    # A block, dot-sourced (same scope): it runs again after Phase B when that session opened slices that are
+    # auto-approved through their spec, so they are built in the same run (MaxBuilds and the time rules still
+    # count every build of the run).
+    $phaseA = {
+        $q = $queue
+        while ($true) {
+            if ($built.Count -gt 0 -and -not $DryRun) { $q = Get-LoopQueue }
+            if ($null -eq $q) { Write-Log 'Phase A: the queue check failed; no build session' 'WARN'; [void]$runNotes.Add('Phase A: queue check failed, nothing built'); break }
+            # the plan budget, re-read before every build session (a verdict that changes mid-run counts)
+            if ($built.Count -gt 0) { $budget = Get-PlanBudget }
+            if ($budget.Verdict -eq 'hold') { Write-Log "Phase A: stop: $($budget.Reason)"; [void]$runNotes.Add("Phase A stopped: $($budget.Reason)"); break }
+            $split = Split-QueueByBudget $q $budget.Verdict
+            if (@($split.Deferred).Count -gt 0) {
+                $dl = "Phase A: $(Format-Deferred @($split.Deferred) $budget.Verdict)"
+                if ($runNotes -notcontains $dl) { Write-Log $dl; [void]$runNotes.Add($dl) }
+            }
+            $dec = Get-NextBuildDecision -Buildable @($split.Allowed) -Done $built -MaxBuilds $MaxBuilds -RemainingMinutes (& $minutesLeft) -NextBuildMinMinutes $NextBuildMinMinutes
+            Write-Log "Phase A: $(if ($dec.Start) { 'starting' } else { 'stop:' }) $($dec.Reason)"
+            if (-not $dec.Start) { [void]$runNotes.Add("Phase A stopped: $($dec.Reason)"); break }
+            $n = $dec.Issue
+            $labels = Get-QueueLabels $q $n
+            $approvalOf[$n] = Get-QueueApproval $q $n
+            if ($approvalOf[$n] -ne 'label') { Write-Log "Phase A: #$n approval: $($approvalOf[$n])" }
+            $sm = Get-SessionModel -Kind 'build' -Labels $labels -Config $Cfg -Override $Model
+            $minutes = [int][math]::Floor([math]::Min([double]$Cfg.build.timeoutMinutes, (& $minutesLeft)))
+            if ($built.Count -gt 0 -and -not $DryRun) { $cloneLines = @(Reset-Clones); if ($script:ServerEnabled) { try { $liveHead = Get-LiveHead } catch { } } }
+            $builtLine = @($built | ForEach-Object { "#$($_.Issue) $($_.Outcome)" }) -join ', '
+            $pp = New-SessionPrompt -Kind 'build' -Issue $n -SessionModel $sm -Turns ([int]$Cfg.build.maxTurns) -SessionDeadline ((Get-Date).AddMinutes($minutes)) -Q $q -CloneLines $cloneLines -LiveHead $liveHead -ServerUsed $serverUsed -BuiltLine $builtLine
+            if ($DryRun) {
+                Write-Log "DRY RUN plan: build session #$n model=$sm (labels: $($labels -join ',')) maxTurns=$($Cfg.build.maxTurns) timeout=${minutes}m prompt=$pp"
+                $built += [pscustomobject]@{ Issue = $n; Outcome = 'deployed' }; $simMinutes += 75   # assume it deploys in ~75 min, to show the plan
+                continue
+            }
+            $s = Invoke-Session -Kind 'build' -Issue $n -SessionModel $sm -Turns ([int]$Cfg.build.maxTurns) -Minutes $minutes -PromptPath $pp
+            [void]$sessions.Add($s)
+            if ($s.EndClass -eq 'not-started') {
+                # e.g. the reduced token could not be verified (fail closed): nothing else may run either
+                [void]$problems.Add("build #${n}: the session could not be started ($($s.Reason)); the run stopped"); $stopRun = $true; break
+            }
+            $closed = @(Close-UnfinishedIssues -Issues @($n) -EndClass $s.EndClass -Since $s.Start -LimitMinutes $minutes)
+            $lbl = @(); try { $lbl = @((Get-GhJson @('api', "repos/$($script:HubRepo)/issues/$n")).labels | ForEach-Object { $_.name }) } catch { Write-Log "cannot read #$n labels: $_" 'WARN' }
+            $marker = [regex]::Match($s.Summary, "LOOP-ISSUE-END\s+#?$n\s+([a-z-]+)").Groups[1].Value
+            $outcome = Get-BuildOutcome -Labels $lbl -MarkerOutcome $marker
+            $built += [pscustomobject]@{ Issue = $n; Outcome = $outcome }
+            $uncertain = @()
+            foreach ($repo in $script:Repos) {
+                $cert = Get-DeployCertainty -SessionStart $s.Start -MergeRec (Read-RepoState 'merge' $n $repo.name) -DeployRec (Read-RepoState 'deploy' $n $repo.name) -RollbackRec (Read-RepoState 'rollback' $n $repo.name)
+                Write-Log "build #$n [$($repo.name)]: deploy=$($cert.State) ($($cert.Reason))"
+                if (-not $cert.Certain) { $uncertain += "$($repo.name): $($cert.Reason)" }
+                $dr = Read-RepoState 'deploy' $n $repo.name
+                if ($dr -and $dr.serverDeployed -and $dr.startedUtc -and ([datetime]$dr.startedUtc).ToUniversalTime() -ge $s.Start.ToUniversalTime()) { $serverUsed = "#$n" }
+            }
+            Write-Log "build #$n ended: outcome=$outcome$(if ($closed.Count) { '; marked loop:failed by the runner' })"
+            if ($uncertain.Count -gt 0) {
+                [void]$problems.Add("#${n}: $($uncertain -join '; '). DEPLOY STATE UNCERTAIN, NEEDS $($OwnerName.ToUpperInvariant()): the run stopped here (no further build, no proposals)")
+                Write-Log "build #${n}: deploy state uncertain; stopping the run" 'ERROR'
+                $stopRun = $true; break
+            }
+        }
+    }
+    if ($mode -eq 'FULL') { . $phaseA }
 
-"@
-    $promptPath = Join-Path $script:LoopHome "logs\run-$RunId.prompt.md"
-    [IO.File]::WriteAllText($promptPath, $header + $loopMd, $utf8)
+    # ---- Phase B: one proposal session, only when a slot is free ---------------------------------
+    if (-not $stopRun) {
+        $qb = $queue; if ($built.Count -gt 0 -and -not $DryRun) { $qb = Get-LoopQueue }
+        $builtLine = @($built | ForEach-Object { "#$($_.Issue) $($_.Outcome)" }) -join ', '
+        $left = & $minutesLeft
+        $why = ''
+        $kind = 'propose'
+        if ($built.Count -gt 0) { $budget = Get-PlanBudget }   # re-read: a build may have moved the verdict
+        if ($kind -eq 'propose') {
+            if ($null -ne $qb -and [int]$qb.slots.newThisRun -le 0) { $why = "no free proposal slot ($(@($qb.slots.awaitingReview).Count) awaiting review, cap $($qb.slots.cap))" }
+            elseif ($left -lt [double]$Cfg.propose.minMinutes) { $why = "$([int]$left) min left before the deadline (a proposal session needs $($Cfg.propose.minMinutes))" }
+        }
+        if (-not $why) {
+            $pm = Get-SessionModel -Kind $kind -Config $Cfg -Override $Model
+            if (-not (Test-BudgetAllowsModel -Verdict $budget.Verdict -Model $pm)) { $why = "$($budget.Reason) does not allow a $kind session on $pm" }
+        }
+        if ($why) {
+            Write-Log "Phase B: no proposal session: $why"; [void]$runNotes.Add("Phase B: no proposal session ($why)")
+        } else {
+            $c = $Cfg['propose']
+            $sm = Get-SessionModel -Kind 'propose' -Config $Cfg -Override $Model
+            $minutes = [int][math]::Floor([math]::Min([double]$c.timeoutMinutes, $left))
+            if ($built.Count -gt 0 -and -not $DryRun) { $cloneLines = @(Reset-Clones); if ($script:ServerEnabled) { try { $liveHead = Get-LiveHead } catch { } } }
+            $pp = New-SessionPrompt -Kind 'propose' -SessionModel $sm -Turns ([int]$c.maxTurns) -SessionDeadline ((Get-Date).AddMinutes($minutes)) -Q $qb -CloneLines $cloneLines -LiveHead $liveHead -BuiltLine $builtLine
+            if ($DryRun) {
+                Write-Log "DRY RUN plan: propose session model=$sm maxTurns=$($c.maxTurns) timeout=${minutes}m slots newThisRun=$($qb.slots.newThisRun) slicesToOpen=$(@($qb.slicesToOpen).Count) prompt=$pp"
+            } else {
+                [void]$sessions.Add((Invoke-Session -Kind $kind -SessionModel $sm -Turns ([int]$c.maxTurns) -Minutes $minutes -PromptPath $pp))
+                $proposeRan = ($kind -eq 'propose')
+            }
+        }
+    }
 
-    $q = { param($s) '"' + $s + '"' }
-    $argList = @('-p', '--output-format', 'stream-json', '--verbose',
-        '--max-turns', "$MaxTurns",
-        '--permission-mode', 'dontAsk', '--permission-prompts', 'none',
-        '--settings', (& $q $settingsPath),
-        '--setting-sources', 'local',
-        '--strict-mcp-config',
-        '--add-dir', (& $q $script:LoopHome), (& $q $ScriptsDir), (& $q 'D:\services\logs'))
-    if ($Model) { $argList += @('--model', $Model) }
-    $argString = $argList -join ' '
-    Write-Log "claude command: `"$ClaudeExe`" $argString  < $promptPath"
+    # ---- Phase A again: slices the proposal session just opened that are auto-approved via their spec ----
+    if ($mode -eq 'FULL' -and -not $stopRun -and -not $DryRun -and $proposeRan) {
+        $q2 = Get-LoopQueue
+        $tried = @($built | ForEach-Object { [int]$_.Issue })
+        $fresh = @(@($q2.buildable) | Where-Object { $null -ne $_ -and $tried -notcontains [int]$_ -and (Get-QueueApproval $q2 ([int]$_)) -ne 'label' })
+        if ($null -ne $q2 -and $fresh.Count -gt 0) {
+            Write-Log "Phase A (after Phase B): auto-approved slice(s) now buildable: $(@($fresh | ForEach-Object { "#$_" }) -join ' ')"
+            $queue = $q2; $cloneLines = @(Reset-Clones); if ($script:ServerEnabled) { try { $liveHead = Get-LiveHead } catch { } }
+            $budget = Get-PlanBudget
+            . $phaseA
+        }
+    }
 
     if ($DryRun) {
-        Write-Log 'DRY RUN: stopping before invoking claude'
+        Write-Log "DRY RUN: $(@($built).Count) build session(s) and $(if (@($runNotes | Where-Object { $_ -like 'Phase B: no*' }).Count) { 'no' } else { 'one' }) proposal session planned; stopping before invoking claude"
         $exitCode = 0
         return
     }
 
-    $outPath = Join-Path $script:LoopHome "logs\run-$RunId.jsonl"
-    $errPath = Join-Path $script:LoopHome "logs\run-$RunId.err.log"
-    $workDir = Join-Path $script:LoopHome 'work'
-    $proc = Start-Process -FilePath $ClaudeExe -ArgumentList $argString -WorkingDirectory $workDir `
-        -RedirectStandardInput $promptPath -RedirectStandardOutput $outPath -RedirectStandardError $errPath -PassThru -WindowStyle Hidden
-    # PS 5.1 QUIRK (bug seen in the first real run): a Start-Process -PassThru object reports ExitCode as
-    # $null unless its Handle is read right after the start. Touching it caches the handle so ExitCode works.
-    $null = $proc.Handle
-    $claudeToken = $null
-    try { $claudeToken = [InnovationLoop.ReducedToken]::OfProcess($proc.Handle) } catch { }
-    if ($claudeToken -and -not $claudeToken.IsReduced) {
-        & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null
-        throw "claude started with an elevated token ($claudeToken); killed it (fail closed)"
+    # ---- the run's result and summary ------------------------------------------------------------
+    $res = Get-RunResult -Sessions @($sessions) -Problems @($problems)
+    $sum = New-Object System.Collections.ArrayList
+    [void]$sum.Add("Run $RunId ($mode): $($sessions.Count) session(s), one per job.")
+    foreach ($s in $sessions) {
+        $nm = $s.Kind; if ($s.Issue) { $nm += " #$($s.Issue)" }
+        $c = 'n/a'; if ($null -ne $s.Cost) { $c = '$' + ([double]$s.Cost).ToString('0.00', [Globalization.CultureInfo]::InvariantCulture) }
+        [void]$sum.Add("- $nm ($($s.Model), $($s.Turns) turns, $c, ended: $($s.EndClass)): LOOP-RESULT $($s.Status) $($s.Reason)".TrimEnd())
     }
-    Write-Log "claude pid $($proc.Id) token: $(if ($claudeToken) { $claudeToken } else { 'unreadable (exited already?)' }); timeout $TimeoutMinutes min"
-    if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
-        Write-Log 'TIMEOUT: killing claude process tree' 'ERROR'
-        & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null
-        throw "claude exceeded $TimeoutMinutes minutes"
+    foreach ($b in $built) {
+        $ap = ''; if ($approvalOf.ContainsKey([int]$b.Issue) -and $approvalOf[[int]$b.Issue] -ne 'label') { $ap = " (approval: $($approvalOf[[int]$b.Issue]))" }
+        [void]$sum.Add("- build #$($b.Issue): $($b.Outcome)$ap")
     }
-    $proc.WaitForExit()
-    $claudeExit = $proc.ExitCode
-    if ($null -eq $claudeExit) {
-        # should not happen now that the handle is cached; if it does, judge the run by the transcript alone
-        Write-Log 'claude exit code unavailable (null) even with the cached handle; using the result message only' 'WARN'
-    } else {
-        Write-Log "claude exit code $claudeExit"
+    foreach ($r in $runNotes) { [void]$sum.Add("- $r") }
+    foreach ($p in $problems) { [void]$sum.Add("- RUNNER: $p") }
+    foreach ($s in $sessions) {
+        $nm = $s.Kind; if ($s.Issue) { $nm += " #$($s.Issue)" }
+        [void]$sum.Add(''); [void]$sum.Add("=== $nm session summary ===")
+        $txt = ($s.Summary -replace '(?m)^\s*LOOP-RESULT:.*$', '').Trim(); if (-not $txt) { $txt = '(none)' }
+        [void]$sum.Add($txt)
     }
-
-    # ---- result -------------------------------------------------------------------------
-    $result = $null
-    foreach ($line in [IO.File]::ReadAllLines($outPath)) {
-        if ($line -match '"type"\s*:\s*"result"') { try { $result = $line | ConvertFrom-Json } catch { } }
-    }
-    $summaryPath = Join-Path $script:LoopHome "logs\run-$RunId.summary.txt"
-    if ($result) {
-        $text = "$($result.result)"
-        [IO.File]::WriteAllText($summaryPath, $text, $utf8)
-        Write-Log ("result: subtype={0} is_error={1} turns={2} cost={3}" -f $result.subtype, $result.is_error, $result.num_turns, $result.total_cost_usd)
-        $status = [regex]::Match($text, 'LOOP-RESULT:\s*([A-Z\-]+)').Groups[1].Value
-        Write-Log "LOOP-RESULT: $status"
-        $exitOk = ($claudeExit -eq 0) -or ($null -eq $claudeExit)   # null only if the handle trick failed (logged above)
-        if ($exitOk -and -not $result.is_error -and $status -in @('OK', 'NOTHING-TO-DO')) { $exitCode = 0 }
-        else { $exitCode = 1 }
-    } else {
-        Write-Log 'no result message in the transcript' 'ERROR'
-        $exitCode = 1
-    }
+    $finalQueue = Get-LoopQueue
+    $waitLine = Format-WaitingOnOwner -Waiting @($finalQueue.waitingOnOwner) -Who $OwnerName
+    [void]$sum.Add(''); if ($waitLine) { [void]$sum.Add($waitLine) } else { [void]$sum.Add("Failed, waiting on ${OwnerName}: none") }
+    [void]$sum.Add($res.Line)
+    [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.summary.txt"), ($sum -join "`r`n"), $utf8)
+    $tc = [double]0; $tt = 0; foreach ($s in $sessions) { if ($null -ne $s.Cost) { $tc += [double]$s.Cost }; $tt += [int]$s.Turns }
+    # never a second `cost=` key: tooling sums cost= over the per-session result lines
+    Write-Log ("run total: sessions={0} turns={1} usd={2}" -f $sessions.Count, $tt, $tc.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture))
+    $rd = [ordered]@{ runId = $RunId; mode = $mode; status = $res.Status; claudeStarted = ($sessions.Count -gt 0); waitingOnOwner = $waitLine
+        sessions = @($sessions | ForEach-Object { [ordered]@{ kind = $_.Kind; issue = $_.Issue; model = $_.Model; endClass = $_.EndClass; status = $_.Status; turns = $_.Turns; cost = $_.Cost } })
+        totals = [ordered]@{ Turns = $tt; Cost = $tc } }
+    [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.rundata.json"), ($rd | ConvertTo-Json -Depth 5), $utf8)
+    Write-Log $res.Line
+    $allOk = (@($sessions | Where-Object { -not $_.Ok }).Count -eq 0)
+    if ($allOk -and $res.Status -in @('OK', 'NOTHING-TO-DO')) { $exitCode = 0 } else { $exitCode = 1 }
 } catch {
     Write-Log "run failed: $_" 'ERROR'
     $exitCode = 1
 } finally {
+    # spec checklists: every run (also NOTHING-TO-DO), so a slice deployed or closed by hand is ticked off
+    try {
+        $sq = $finalQueue; if (-not $sq) { $sq = $queue }
+        if ($sq -and @($sq.specs).Count -gt 0) {
+            $upd = @(Publish-SpecProgress -Specs @($sq.specs) -NoPost:$DryRun)
+            if ($upd.Count -gt 0) { Write-Log "spec progress: $(if ($DryRun) { 'would update (dry run, written to state\spec only)' } else { 'updated' }) #$($upd -join ', #')" }
+        }
+    } catch { Write-Log "spec progress skipped: $_" 'WARN' }
     Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
     Get-ChildItem (Join-Path $script:LoopHome 'logs') -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-60) } |
         Remove-Item -Force -ErrorAction SilentlyContinue

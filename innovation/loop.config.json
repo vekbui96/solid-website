@@ -1,0 +1,237 @@
+{
+    "project":  "portfolio",
+    "title":  "Portfolio site",
+    "owner":  "vekbui96",
+    "ownerName":  "Ve",
+    "windowsUser":  "SERVER-PC\\VeBui",
+    "checkout":  "D:\\projects\\solid-website",
+    "hubRepo":  "vekbui96/solid-website",
+    "commitTrailer":  "Co-Authored-By: Claude Opus 5.5 \u003cnoreply@anthropic.com\u003e",
+    "schedule":  "13:17",
+    "tasks":  {
+                  "loop":  "InnovationLoop",
+                  "deploy":  "innovation-loop-api"
+              },
+    "caps":  {
+                 "maxOpen":  5,
+                 "maxNewPerRun":  3
+             },
+    "areas":  [
+                  "frontend",
+                  "backend",
+                  "both"
+              ],
+    "repos":  [
+                  {
+                      "name":  "solid-website",
+                      "slug":  "vekbui96/solid-website",
+                      "cloneUrl":  "git@github-solid-website:vekbui96/solid-website.git",
+                      "area":  "frontend",
+                      "requiredChecks":  [
+
+                                         ],
+                      "localGate":  [
+                                        "install",
+                                        "typecheck",
+                                        "build"
+                                    ]
+                  },
+                  {
+                      "name":  "solid-website-api",
+                      "slug":  "vekbui96/solid-website-api",
+                      "cloneUrl":  "git@github-solid-website-api:vekbui96/solid-website-api.git",
+                      "area":  "backend",
+                      "requiredChecks":  [
+
+                                         ],
+                      "localGate":  [
+                                        "verify"
+                                    ]
+                  }
+              ],
+    "frontend":  {
+                     "mode":  "manual",
+                     "repo":  "solid-website",
+                     "siteUrl":  "https://vekbui96.github.io/solid-website/",
+                     "assetBase":  "./assets/",
+                     "distDir":  "dist",
+                     "rootSelector":  "main-page",
+                     "paths":  [
+                                   "^src/",
+                                   "^public/",
+                                   "^index\\.html$",
+                                   "^vite\\.config\\.ts$",
+                                   "^package\\.json$",
+                                   "^yarn\\.lock$",
+                                   "^\\.storybook/"
+                               ],
+                     "extraLive":  [
+                                       "storybook/",
+                                       "Ve-Bui-Resume.pdf"
+                                   ]
+                 },
+    "server":  {
+                   "enabled":  true,
+                   "repo":  "solid-website-api",
+                   "serviceName":  "solid-website-api",
+                   "childProcessPattern":  "^java",
+                   "liveDir":  "C:\\ProgramData\\innovation-loop-portfolio\\clones\\solid-website-api",
+                   "elevatedClone":  {
+                                         "sshAlias":  "github-solid-website-api",
+                                         "url":  "git@github-solid-website-api:vekbui96/solid-website-api.git"
+                                     },
+                   "artifact":  {
+                                    "serviceDir":  "D:\\services\\solid-website-api",
+                                    "jarRel":  "target\\personal-site-api-0.0.1-SNAPSHOT.jar",
+                                    "keep":  5
+                                },
+                   "dataDirs":  [
+
+                                ],
+                   "keepSnapshots":  5,
+                   "paths":  [
+                                 "src/main",
+                                 "pom.xml",
+                                 ".mvn",
+                                 "mvnw",
+                                 "mvnw.cmd"
+                             ],
+                   "inertPaths":  [
+
+                                  ],
+                   "liveExtraPaths":  [
+
+                                      ],
+                   "healthUrl":  "http://localhost:8080/api/health",
+                   "healthExpect":  "\"status\"\\s*:\\s*\"UP\"",
+                   "publicHealthUrl":  "https://server-pc.tail0e4194.ts.net/api/health",
+                   "stableChecks":  4,
+                   "checkIntervalSec":  10,
+                   "startupTimeoutSec":  120,
+                   "smokeGets":  [
+                                     {
+                                         "url":  "http://localhost:8080/actuator/health",
+                                         "expect":  "\"status\"\\s*:\\s*\"UP\"",
+                                         "attempts":  5,
+                                         "upstreamStatuses":  [
+
+                                                              ]
+                                     }
+                                 ]
+               },
+    "gitSafeExtra":  [
+                         "clones\\solid-website\\node_modules\\.cache\\gh-pages\\*",
+                         "work\\*"
+                     ],
+    "protectedPaths":  [
+                           "^src/main/resources/application[^/]*\\.(properties|ya?ml)$",
+                           "^render\\.yaml$",
+                           "^Dockerfile$",
+                           "^\\.dockerignore$",
+                           "^fit-backend/",
+                           "^openspec/",
+                           "^vite\\.config\\.ts$"
+                       ],
+    "protectedSamples":  [
+                             "src\\main\\resources\\application.properties",
+                             "fit-backend\\crew.py",
+                             "render.yaml"
+                         ],
+    "mergeLineDeny":  [
+                          {
+                              "pattern":  "(?i)allowed-origins|allowedOrigins|Access-Control-Allow-Origin|CorsConfiguration|@CrossOrigin",
+                              "why":  "changes CORS handling: manual / needs Ve"
+                          },
+                          {
+                              "pattern":  "\u003cartifactId\u003epersonal-site-api\u003c/artifactId\u003e|\u003cversion\u003e0\\.0\\.1-SNAPSHOT\u003c/version\u003e",
+                              "why":  "touches the pom artifactId/version that the NSSM service\u0027s jar path depends on: manual / needs Ve"
+                          }
+                      ],
+    "neverTouch":  [
+                       {
+                           "pattern":  "cardlens|\\brecognition\\b",
+                           "name":  "CardLens and the recognition service",
+                           "sample":  "cardlens"
+                       },
+                       {
+                           "pattern":  "target-stock-checker",
+                           "name":  "the Target stock bot",
+                           "sample":  "target-stock-checker"
+                       },
+                       {
+                           "pattern":  "palworld",
+                           "name":  "Palworld"
+                       },
+                       {
+                           "pattern":  "tailscale|\\bfunnel\\s+(serve|on|off|reset)",
+                           "name":  "Tailscale / Funnel"
+                       },
+                       {
+                           "pattern":  "openclaw|\\bwsl(\\.exe)?\\b",
+                           "name":  "OpenClaw / WSL"
+                       },
+                       {
+                           "pattern":  "\\.server-setup|04-install-services|07-[^\\s]*secret",
+                           "name":  "the server setup scripts",
+                           "sample":  ".server-setup"
+                       },
+                       {
+                           "pattern":  "innovation-loop-cardlens|innovation-loop-watch",
+                           "name":  "the other loops\u0027 state",
+                           "sample":  "innovation-loop-cardlens"
+                       }
+                   ],
+    "secretEnvNames":  [
+                           "RESEND_API_KEY"
+                       ],
+    "liveRoots":  [
+                      "D:\\services"
+                  ],
+    "readableLogs":  [
+                         "D:\\services\\logs\\solid-website-api"
+                     ],
+    "readableLogDirs":  [
+                            "D:\\services\\logs"
+                        ],
+    "web":  {
+                "fetchDomains":  [
+                                     "vekbui96.github.io",
+                                     "server-pc.tail0e4194.ts.net",
+                                     "raw.githubusercontent.com"
+                                 ],
+                "fetchAllow":  [
+                                   "^https://vekbui96\\.github\\.io/solid-website(/|\\?|$)",
+                                   "^https://server-pc\\.tail0e4194\\.ts\\.net/(api/health|actuator/health)",
+                                   "^https://raw\\.githubusercontent\\.com/vekbui96/solid-website/"
+                               ],
+                "fetchSamples":  [
+                                     "https://vekbui96.github.io/solid-website/"
+                                 ],
+                "httpAllow":  [
+                                  "^https?://(127\\.0\\.0\\.1|localhost):(8080|4173)/",
+                                  "^https://vekbui96\\.github\\.io/solid-website",
+                                  "^https://server-pc\\.tail0e4194\\.ts\\.net/(api/health|actuator/health)"
+                              ],
+                "forbiddenRoutes":  "/api/contact"
+            },
+    "sessionScripts":  [
+                           "check-approval",
+                           "test-gate",
+                           "wait-ci",
+                           "merge-pr",
+                           "deploy",
+                           "rollback",
+                           "screenshots"
+                       ],
+    "cleanKeep":  [
+                      "node_modules",
+                      "target",
+                      ".cache"
+                  ],
+    "tools":  {
+                  "claude":  "C:\\Users\\Ve Bui\\.local\\bin\\claude.exe",
+                  "gh":  "C:\\Program Files\\GitHub CLI\\gh.exe",
+                  "node":  "C:\\Program Files\\nodejs\\node.exe",
+                  "npm":  "C:\\Program Files\\nodejs\\npm.cmd"
+              }
+}
