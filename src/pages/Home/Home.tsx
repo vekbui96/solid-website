@@ -226,13 +226,13 @@ export const Home = () => {
                 <div class="container">
                     <p class="hp-eyebrow">Stack</p>
                     <h2 class="hp-section-title">What I work with.</h2>
-                    <div class="hp-matrix">
-                        <div class="hp-row"><span class="hp-row-k">Backend &amp; APIs</span><span class="hp-row-v">Java · Spring Boot · REST · Clojure</span></div>
-                        <div class="hp-row"><span class="hp-row-k">Data &amp; Storage</span><span class="hp-row-v">PostgreSQL · schema design · query performance</span></div>
-                        <div class="hp-row"><span class="hp-row-k">Cloud &amp; Infra</span><span class="hp-row-v">AWS · CI/CD · observability · on-call</span></div>
-                        <div class="hp-row"><span class="hp-row-k">Frontend</span><span class="hp-row-v">TypeScript · SolidJS · micro-frontends</span></div>
-                        <div class="hp-row"><span class="hp-row-k">AI</span><span class="hp-row-v">LLM apps · retrieval · tool-calling · evals</span></div>
-                    </div>
+                    <dl class="hp-matrix">
+                        <div class="hp-row"><dt class="hp-row-k">Backend &amp; APIs</dt><dd class="hp-row-v">Java · Spring Boot · REST · Clojure</dd></div>
+                        <div class="hp-row"><dt class="hp-row-k">Data &amp; Storage</dt><dd class="hp-row-v">PostgreSQL · schema design · query performance</dd></div>
+                        <div class="hp-row"><dt class="hp-row-k">Cloud &amp; Infra</dt><dd class="hp-row-v">AWS · CI/CD · observability · on-call</dd></div>
+                        <div class="hp-row"><dt class="hp-row-k">Frontend</dt><dd class="hp-row-v">TypeScript · SolidJS · micro-frontends</dd></div>
+                        <div class="hp-row"><dt class="hp-row-k">AI</dt><dd class="hp-row-v">LLM apps · retrieval · tool-calling · evals</dd></div>
+                    </dl>
                 </div>
             </section>
 
