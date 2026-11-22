@@ -54,6 +54,14 @@
     min-height: 7rem;
 }
 
+.cf-count {
+    align-self: flex-end;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+
 .cf-err {
     font-size: 0.8rem;
     color: #f87171;

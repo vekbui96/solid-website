@@ -5,6 +5,12 @@ import styles from "./ContactForm.scss?inline";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
+// Mirror the API's @Size limits on ContactRequest so the browser stops typing
+// where the server would reject; the server still validates.
+const NAME_MAX = 100;
+const MESSAGE_MAX = 5000;
+const MESSAGE_COUNT_FROM = 4500; // show the counter only near the cap
+
 export const ContactForm = () => {
     const [name, setName] = createSignal("");
     const [email, setEmail] = createSignal("");
@@ -15,6 +21,11 @@ export const ContactForm = () => {
     const [errors, setErrors] = createSignal<Record<string, string>>({});
 
     const fieldErr = (f: string) => errors()[f];
+    const nearMessageMax = () => message().length > MESSAGE_COUNT_FROM;
+    const messageDescribedBy = () =>
+        [fieldErr("message") && "cf-message-err", nearMessageMax() && "cf-message-count"]
+            .filter(Boolean)
+            .join(" ") || undefined;
 
     const submit = async (e: Event) => {
         e.preventDefault();
@@ -52,6 +63,7 @@ export const ContactForm = () => {
                         class="cf-input"
                         type="text"
                         autocomplete="name"
+                        maxlength={NAME_MAX}
                         value={name()}
                         onInput={(e) => setName(e.currentTarget.value)}
                         aria-invalid={fieldErr("name") ? "true" : undefined}
@@ -85,11 +97,17 @@ export const ContactForm = () => {
                         id="cf-message"
                         class="cf-input cf-textarea"
                         rows="5"
+                        maxlength={MESSAGE_MAX}
                         value={message()}
                         onInput={(e) => setMessage(e.currentTarget.value)}
                         aria-invalid={fieldErr("message") ? "true" : undefined}
-                        aria-describedby={fieldErr("message") ? "cf-message-err" : undefined}
+                        aria-describedby={messageDescribedBy()}
                     />
+                    <Show when={nearMessageMax()}>
+                        <span id="cf-message-count" class="cf-count">
+                            {message().length.toLocaleString("en-US")}{" / 5000 characters"}
+                        </span>
+                    </Show>
                     <Show when={fieldErr("message")}>
                         <span id="cf-message-err" class="cf-err">{fieldErr("message")}</span>
                     </Show>
