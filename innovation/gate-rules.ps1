@@ -172,6 +172,17 @@ function ConvertTo-SafeLine {
     return $t
 }
 
+# Comments that interactive Claude agents (not the loop) post as the owner carry this marker. They are neither
+# the owner's own words (never an adjustment) nor the loop's output (never a loop notice or failure marker), even
+# when they also quote the loop marker. A /hold still counts (fail-safe).
+$script:AgentMarker = '<!-- claude-agent -->'
+function Test-AgentComment { param($Comment) return "$($Comment.body)".Contains($script:AgentMarker) }
+# The owner's comment ids that may adjust an approved proposal: by -Owner, without the loop marker, not an agent's.
+function Get-OwnerAdjustmentIds {
+    param([object[]]$Comments = @(), [string]$Owner, [string]$Marker = '<!-- innovation-loop -->')
+    return @($Comments | Where-Object { $_ -and "$($_.user.login)" -eq $Owner -and -not "$($_.body)".Contains($Marker) -and -not (Test-AgentComment $_) } | ForEach-Object { $_.id })
+}
+
 # The planned slices of a spec body: the numbered items of its "## Slices" section ("1. **Title**: ..."), in
 # order. Returns K and Title; an item without bold text is titled by its text up to the first ': ' / ' - '.
 function Get-SpecSlices {
@@ -485,7 +496,7 @@ function Format-SliceWaitNotice {
 # Has the runner already posted its waiting notice on this slice (a comment by -Owner with both markers)?
 function Test-SliceWaitNoticed {
     param([object[]]$Comments, [string]$Owner, [string]$Marker = '<!-- innovation-loop -->')
-    return (@($Comments | Where-Object { $_ -and "$($_.user.login)" -eq $Owner -and "$($_.body)".Contains($Marker) -and "$($_.body)".Contains($script:SliceWaitMarker) }).Count -gt 0)
+    return (@($Comments | Where-Object { $_ -and "$($_.user.login)" -eq $Owner -and "$($_.body)".Contains($Marker) -and "$($_.body)".Contains($script:SliceWaitMarker) -and -not (Test-AgentComment $_) }).Count -gt 0)
 }
 
 # Which waiting slices get the notice now: those the queue says are not noticed yet (check-approval.ps1 -List
@@ -703,7 +714,7 @@ function Get-FailureRecords {
     $out = @()
     foreach ($c in @($Comments | Where-Object { $_ } | Sort-Object { [datetime]$_.created_at })) {
         if ("$($c.user.login)" -ne $Owner) { continue }
-        $b = "$($c.body)"; if (-not $b.Contains($Marker)) { continue }
+        $b = "$($c.body)"; if (-not $b.Contains($Marker) -or (Test-AgentComment $c)) { continue }
         if ($sinceT -and ([datetime]$c.created_at) -le $sinceT) { continue }
         $m = [regex]::Match($b, $script:FailureMarkerRx)
         if (-not $m.Success) { continue }

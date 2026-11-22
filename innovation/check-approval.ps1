@@ -27,7 +27,8 @@
      was approved. To change scope after approving, remove and re-add `approved`
    - the body does not say "Manual / needs Ve" (out-of-scope proposals are never built by the loop)
 
-  Also prints `adjustments`: ids of comments by the owner WITHOUT the `<!-- innovation-loop -->` marker.
+  Also prints `adjustments`: ids of comments by the owner WITHOUT the `<!-- innovation-loop -->` marker (and
+  without `<!-- claude-agent -->`: interactive agents posting as the owner are not the owner).
   Only those may adjust an approved proposal; comments by anyone else are untrusted data (repos are public).
 
   With -List it checks every open approved proposal, and every open slice of an approved spec, and prints
@@ -122,7 +123,7 @@ function Test-Issue {
         $res.viaSpecReasons = @($via.Reasons)
         if ($via.Eligible) {
             $res.approval = 'via-spec'; $res.viaSpec = [int]$via.Spec
-            $res.viaSpecNoticed = (@($comments | Where-Object { "$($_.user.login)" -eq $Owner -and "$($_.body)".Contains($script:Marker) -and "$($_.body)".Contains($script:ViaSpecMarker) }).Count -gt 0)
+            $res.viaSpecNoticed = (@($comments | Where-Object { "$($_.user.login)" -eq $Owner -and "$($_.body)".Contains($script:Marker) -and "$($_.body)".Contains($script:ViaSpecMarker) -and -not (Test-AgentComment $_) }).Count -gt 0)
         }
     }
     $isVia = ($res.approval -eq 'via-spec')
@@ -165,7 +166,7 @@ function Test-Issue {
         }
     }
 
-    $res.adjustments = @($comments | Where-Object { $_ -and $_.user.login -eq $Owner -and -not ($_.body -and $_.body.Contains($script:Marker)) } | ForEach-Object { $_.id })
+    $res.adjustments = @(Get-OwnerAdjustmentIds -Comments $comments -Owner $Owner -Marker $script:Marker)
 
     if (-not $AsSpec) {
         # loop:failed: buildable again only as the ONE automatic retry of a failure outside the change

@@ -412,6 +412,20 @@ Check ((Get-LoopMdSections -Text $dmd -Sections @(0, 1, 2, 5, 6)) -notmatch 'imp
 $gm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'guard.mjs'))
 foreach ($k in 'Engine', 'Search') { Check ($gm.Contains('"' + $script:DesignSkillPaths[$k].ToLowerInvariant().Replace('\', '\\') + '"')) "guard.mjs pins the same design $k path as gate-rules.ps1" }
 Check ($dmd.Contains($script:DesignSkillPaths.Engine)) 'LOOP.md names the pinned engine path'
+
+# ---- bare commands: every session is told how the allow rules match (cardlens run 20261122-124809) -------------
+foreach ($secs in @(@(0, 1, 2, 3, 4, 6), @(0, 1, 2, 5, 6))) {
+    $t = Get-LoopMdSections -Text $dmd -Sections $secs
+    Check ($t -match 'Bare commands' -and $t -match 'never wrap it in `\( \.\.\. \)`' -and $t -match 'retry ONCE') "prompt for sections $($secs -join ',') carries the bare-commands rule"
+}
+
+# ---- comments by the owner's interactive agents (<!-- claude-agent -->) ------------------------------------------
+function AgC { param([long]$Id, [string]$Body, [string]$By = $owner, [string]$At = '2026-11-22T10:00:00Z') [pscustomobject]@{ id = $Id; body = $Body; created_at = $At; user = [pscustomobject]@{ login = $By } } }
+$agc = @((AgC 11 'Please keep the old colours.'), (AgC 12 "<!-- claude-agent -->`nUnblocked for a rebuild."), (AgC 13 "$mk`nloop progress"), (AgC 14 'drive-by' -By 'stranger'))
+Check ((@(Get-OwnerAdjustmentIds -Comments $agc -Owner $owner -Marker $mk) -join ',') -eq '11') 'adjustments: the owner''s own comments only (no agent, loop or stranger comments)'
+Check (@(Get-FailureRecords -Comments @((AgC 15 "<!-- claude-agent -->`n$mk`n$(Format-FailureMarker 'tests')" -At '2026-11-17T10:00:00Z')) -Owner $owner -Marker $mk -Since '2026-11-16T10:00:00Z').Count -eq 0) 'an agent comment quoting a failure marker is not a loop failure record'
+Check (-not (Test-SliceWaitNoticed -Comments @((AgC 16 "<!-- claude-agent -->`n$mk`n$($script:SliceWaitMarker)")) -Owner $owner -Marker $mk)) 'an agent comment quoting the waiting notice does not count as the loop''s notice'
+Check (Test-SliceWaitNoticed -Comments @((AgC 17 "$mk`n$($script:SliceWaitMarker)")) -Owner $owner -Marker $mk) 'the loop''s own notice still counts'
 if ($script:fail -gt 0) { Write-Host "TEST-QUEUE-RULES FAIL ($script:fail failed, $script:pass passed)"; exit 1 }
 Write-Host "TEST-QUEUE-RULES PASS ($script:pass checks)"
 exit 0
