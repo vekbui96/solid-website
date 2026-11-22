@@ -382,6 +382,36 @@ Check (@(Select-SliceWaitNotices -Waiting @() -Posted @{}).Count -eq 0) 'nothing
 $pre = Get-PrecheckDecision -Queue (Q @() 0) -Mode 'FULL'
 Check (-not $pre.Launch) "only a waiting slice (not in buildable) and no free slot -> no claude session (got: $($pre.Reason))"
 
+# ---- design skills (sessions.json options.designSkills) ---------------------------------------------
+Check (-not (Get-DesignSkillsEnabled $null)) 'designSkills: no sessions.json -> off'
+Check (-not (Get-DesignSkillsEnabled ('{"build":{}}' | ConvertFrom-Json))) 'designSkills: no options -> off'
+Check (Get-DesignSkillsEnabled ('{"options":{"designSkills":true}}' | ConvertFrom-Json)) 'designSkills: true -> on'
+Check (-not (Get-DesignSkillsEnabled ('{"options":{"designSkills":"no"}}' | ConvertFrom-Json))) 'designSkills: "no" -> off'
+$dsPrefix = 'INNOVATION_LOOP_' + ("$($cfg.project)".ToUpperInvariant() -replace '-', '_')
+$d = Get-DesignSkillsSetup -Enabled $false -EnvPrefix $dsPrefix
+Check (-not $d.Ok -and @($d.Allow).Count -eq 0 -and $d.Env["$($dsPrefix)_DESIGN_SKILLS"] -eq '') 'design off -> no rules, guard flag cleared'
+$dtmp = Join-Path $tmp 'design'
+New-Item -ItemType Directory -Force (Join-Path $dtmp 'imp\reference'), (Join-Path $dtmp 'py') | Out-Null
+foreach ($f in 'engine.exe', 'search.py', 'imp\reference\craft-floor.md', 'py\python.exe') { [IO.File]::WriteAllText((Join-Path $dtmp $f), 'x') }
+$tp = @{ Engine = (Join-Path $dtmp 'engine.exe'); EngineSha256 = 'AB12'; Impeccable = (Join-Path $dtmp 'imp'); Search = (Join-Path $dtmp 'search.py'); PythonDir = (Join-Path $dtmp 'py') }
+$d = Get-DesignSkillsSetup -Enabled $true -EnvPrefix $dsPrefix -Paths $tp -EngineHash 'ab12'
+$rules = @($d.Allow) -join ' | '
+Check ($d.Ok -and $d.Env["$($dsPrefix)_DESIGN_SKILLS"] -eq '1' -and $d.Env['IMPECCABLE_BIN'] -eq $tp.Engine -and $d.PathPrepend -eq $tp.PythonDir) "design on -> guard flag, IMPECCABLE_BIN, python on PATH ($($d.Reason))"
+Check ($d.Env['IMPECCABLE_NO_TELEMETRY'] -eq '1' -and $d.Env['IMPECCABLE_NO_UPDATE_CHECK'] -eq '1' -and $d.Env['IMPECCABLE_HOOK_DISABLED'] -eq '1') 'design on -> engine off the network, hook disabled'
+Check ($rules -match ' context\)' -and $rules -match ' shot \*' -and $rules -match ' detect \*' -and $rules -match 'python .*search\.py \*') "design on -> context/shot/detect/search rules"
+Check ($rules -notmatch 'hooks|pin|live|doctor|foundations|persist|\(python \*\)') 'design: no rule for hooks/pin/live/doctor/foundations or bare python'
+Check (-not (Get-DesignSkillsSetup -Enabled $true -EnvPrefix $dsPrefix -Paths $tp -EngineHash 'ffff').Ok) 'design: engine hash mismatch -> off'
+Remove-Item -LiteralPath (Join-Path $dtmp 'py\python.exe')
+Check (-not (Get-DesignSkillsSetup -Enabled $true -EnvPrefix $dsPrefix -Paths $tp -EngineHash 'ab12').Ok) 'design: missing python.exe -> off'
+Check ((Add-DesignSkillsSection -Sections @(0, 1, 2, 3, 4, 6) -Kind 'build' -On $true) -contains 7) 'design: build + on -> section 7'
+Check ((Add-DesignSkillsSection -Sections @(0, 1, 2, 5, 6) -Kind 'propose' -On $true) -contains 7) 'design: propose + on -> section 7'
+Check (-not ((Add-DesignSkillsSection -Sections @(0, 1, 2, 5, 6) -Kind 'propose' -On $false) -contains 7)) 'design: off -> no section 7'
+$dmd = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'LOOP.md'))
+Check ((Get-LoopMdSections -Text $dmd -Sections @(0, 7)) -match '## 7\. Design skills') 'LOOP.md has the design skills section 7'
+Check ((Get-LoopMdSections -Text $dmd -Sections @(0, 1, 2, 5, 6)) -notmatch 'impeccable') 'a prompt without section 7 never mentions the skills'
+$gm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'guard.mjs'))
+foreach ($k in 'Engine', 'Search') { Check ($gm.Contains('"' + $script:DesignSkillPaths[$k].ToLowerInvariant().Replace('\', '\\') + '"')) "guard.mjs pins the same design $k path as gate-rules.ps1" }
+Check ($dmd.Contains($script:DesignSkillPaths.Engine)) 'LOOP.md names the pinned engine path'
 if ($script:fail -gt 0) { Write-Host "TEST-QUEUE-RULES FAIL ($script:fail failed, $script:pass passed)"; exit 1 }
 Write-Host "TEST-QUEUE-RULES PASS ($script:pass checks)"
 exit 0

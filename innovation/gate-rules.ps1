@@ -866,3 +866,62 @@ function Get-UnfinishedFailure {
     }
     return [pscustomobject]@{ Class = $class; Synopsis = "$what $state" }
 }
+
+# ---- design skills (sessions.json options.designSkills) --------------------------------------------
+# Build and proposal sessions may consult two pinned design aids: impeccable's engine (context / shot / detect)
+# and ui-ux-pro-max's search.py. Pinned copies outside the owner's ~\.claude (guard.mjs keeps sessions out of it:
+# credentials live there). The taste skill is not copied and guard.mjs refuses its name. The engine binary was
+# fetched once from the impeccable release and checked against the skill's engine-checksums.txt; the runner
+# re-hashes it every run and turns the feature off on a mismatch. ENGINE / SEARCH in guard.mjs must match
+# (test-queue-rules.ps1 checks). Not in loop.config.json on purpose: that file is part of the elevated copy.
+$script:DesignSkillPaths = [ordered]@{
+    Engine       = 'D:\loop-tools\impeccable-engine\0.1.27\impeccable.exe'
+    EngineSha256 = 'ba9627d4552bca5666020624d8e994aea8b8b44c46b995e18b5babad0f431fc8'
+    Impeccable   = 'D:\loop-tools\skills\impeccable'
+    Search       = 'D:\loop-tools\skills\ui-ux-pro-max\scripts\search.py'
+    # Python is a per-user install, not on the machine PATH the runner starts from (lib.ps1): prepended for sessions
+    PythonDir    = ('{0}\Programs\Python\Python312' -f $(if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "$env:USERPROFILE\AppData\Local" }))
+}
+$script:DesignSkillKinds = @('build', 'propose')
+$script:DesignSkillSection = 7
+
+# options.designSkills from sessions.json (absent, empty or unreadable = off)
+function Get-DesignSkillsEnabled {
+    param($Json)
+    if (-not $Json -or $Json.PSObject.Properties.Name -notcontains 'options' -or -not $Json.options) { return $false }
+    if ($Json.options.PSObject.Properties.Name -notcontains 'designSkills') { return $false }
+    return ("$($Json.options.designSkills)".Trim().ToLowerInvariant() -in @('true', '1', 'yes'))
+}
+
+# What the runner adds when the feature is on and the files check out: Ok/Reason (why it is off), Allow (permission
+# rules for DesignSkillKinds), PathPrepend (Python's folder, in front of PATH so the bare `python` of the allow
+# rule resolves), Env (set for every session: the guard's flag, IMPECCABLE_BIN, and switches that keep the engine
+# off the network: no telemetry, update or staleness checks, no hook). -EngineHash lets tests skip hashing 24 MB.
+function Get-DesignSkillsSetup {
+    param([bool]$Enabled, [string]$EnvPrefix, [hashtable]$Paths = $null, [string]$EngineHash = '')
+    $p = $script:DesignSkillPaths; if ($Paths) { $p = $Paths }
+    $flag = "$($EnvPrefix)_DESIGN_SKILLS"
+    $off = [pscustomobject]@{ Ok = $false; Reason = 'off (sessions.json options.designSkills)'; Allow = @(); Env = [ordered]@{ $flag = '' }; PathPrepend = '' }
+    if (-not $Enabled) { return $off }
+    foreach ($k in 'Engine', 'Search') { if (-not (Test-Path -LiteralPath $p[$k] -PathType Leaf)) { $off.Reason = "missing $($p[$k])"; return $off } }
+    if (-not (Test-Path -LiteralPath (Join-Path $p.PythonDir 'python.exe') -PathType Leaf)) { $off.Reason = "missing python.exe in $($p.PythonDir)"; return $off }
+    if (-not (Test-Path -LiteralPath (Join-Path $p.Impeccable 'reference\craft-floor.md') -PathType Leaf)) { $off.Reason = "missing the impeccable copy in $($p.Impeccable)"; return $off }
+    $h = $EngineHash; if (-not $h) { $h = (Get-FileHash -LiteralPath $p.Engine -Algorithm SHA256).Hash }
+    if ($h.ToLowerInvariant() -ne $p.EngineSha256.ToLowerInvariant()) { $off.Reason = "engine hash mismatch ($($h.ToLowerInvariant()))"; return $off }
+    $e = $p.Engine
+    $allow = @("PowerShell($e context)", "PowerShell($e context *)", "PowerShell($e shot *)", "PowerShell($e detect *)", "PowerShell(python $($p.Search) *)")
+    $vars = [ordered]@{
+        $flag = '1'; IMPECCABLE_BIN = $e; IMPECCABLE_SKILL_DIR = $p.Impeccable
+        IMPECCABLE_NO_TELEMETRY = '1'; DO_NOT_TRACK = '1'; IMPECCABLE_NO_UPDATE_CHECK = '1'; IMPECCABLE_NO_STALENESS_CHECK = '1'
+        IMPECCABLE_HOOK_DISABLED = '1'; PYTHONDONTWRITEBYTECODE = '1'
+    }
+    return [pscustomobject]@{ Ok = $true; Reason = 'on'; Allow = $allow; Env = $vars; PathPrepend = $p.PythonDir }
+}
+
+# LOOP.md sections for a session kind, plus the design skills section when they are on for that kind.
+function Add-DesignSkillsSection {
+    param([int[]]$Sections, [string]$Kind, [bool]$On)
+    $n = $script:DesignSkillSection
+    if ($On -and $script:DesignSkillKinds -contains $Kind -and $Sections -notcontains $n) { return @($Sections) + $n }
+    return @($Sections)
+}

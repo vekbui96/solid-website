@@ -187,6 +187,69 @@ deny.push(
   { tool_name: "Read", tool_input: { file_path: "D:\\services\\solid-website-api\\.env" } },
   ps(`gh api repos/vekbui96/cardlens/issues`),
 );
+// design skills (sessions.json options.designSkills -> <PREFIX>_DESIGN_SKILLS=1): the pinned impeccable engine
+// (context / shot / detect only) and ui-ux-pro-max's search.py (read-only flags only); taste is excluded
+{
+  const E = "D:\\loop-tools\\impeccable-engine\\0.1.27\\impeccable.exe";
+  const PY = "python D:\\loop-tools\\skills\\ui-ux-pro-max\\scripts\\search.py";
+  const on = { ...env, [PREFIX + "_DESIGN_SKILLS"]: "1" };
+  const designEnvs = [{ ...on, [PREFIX + "_MODE"]: "BUILD" }, { ...on, [PREFIX + "_MODE"]: "PROPOSE" }];
+  const dAllow = [
+    ps(`${E} context`),
+    ps(`${E} context --target "${C}\\src\\pages\\Home"`),
+    ps(`${E} shot https://vekbui96.github.io/solid-website/ --viewport 390x844,1440x900 --out "${W}\\shots-12"`),
+    ps(`${E} shot http://127.0.0.1:4173/ --full --out "${HOME}\\artifacts\\12"`),
+    ps(`${E} detect --json "${C}\\src\\components\\Contact"`),
+    ps(`${E} detect --scope type --viewport 390x844 https://vekbui96.github.io/solid-website/`),
+    ps(`${PY} 'focus visible keyboard' --domain ux -n 3`),
+    ps(`${PY} 'portfolio' --design-system -p Portfolio -f markdown`),
+    { tool_name: "Read", tool_input: { file_path: "D:\\loop-tools\\skills\\impeccable\\reference\\audit.md" } },
+    ps(`gh pr list -R ${R} --search "impeccable audit"`),
+  ];
+  const dDeny = [
+    ps(`${E} hooks on`),
+    ps(`${E} pin pin audit`),
+    ps(`${E} live`),
+    ps(`${E} doctor --fix`),
+    ps(`${E} foundations`),
+    ps(`${E} install`),
+    ps(`${E} update`),
+    ps(`${E} login`),
+    ps(`${E} telemetry on`),
+    ps(`${E} world archives`),
+    ps(`${E}`),
+    ps(`C:\\Users\\Someone\\.claude\\skills\\impeccable\\scripts\\impeccable.cmd context`),
+    ps(`${W}\\impeccable.exe context`),
+    ps(`${E} context --target D:\\projects\\solid-website\\src`),
+    ps(`${E} shot https://example.com/ --out "${W}\\s"`),
+    ps(`${E} shot https://vekbui96.github.io/solid-website/`),
+    ps(`${E} shot https://vekbui96.github.io/solid-website/ --out D:\\projects\\solid-website\\shots`),
+    ps(`${E} shot http://localhost:8080/api/contact --out "${W}\\s"`),
+    ps(`${E} detect --changed`),
+    ps(`${E} context --target $env:TEMP`),
+    ps(`${PY} 'x' --design-system --persist -p Portfolio`),
+    ps(`${PY} 'x' --design-system --persist --force`),
+    ps(`${PY} 'x' --design-system --page home`),
+    ps(`${PY} 'x' --design-system -o ${C}`),
+    ps(`${PY} 'x' --design-system --preview`),
+    ps(`${PY} 'x' --design-system --tokens css`),
+    ps(`${PY} x --domain ux`),
+    ps(`${PY} "x" --domain ux`),
+    ps(`python -c "import os" D:\\loop-tools\\skills\\ui-ux-pro-max\\scripts\\search.py`),
+    ps(`python D:\\loop-tools\\skills\\ui-ux-pro-max\\scripts\\design_system.py 'x'`),
+    { tool_name: "Write", tool_input: { file_path: "D:\\loop-tools\\skills\\impeccable\\SKILL.md", content: "x" } },
+    { tool_name: "Read", tool_input: { file_path: "D:\\loop-tools\\skills\\design-taste-frontend\\SKILL.md" } },
+    { tool_name: "Write", tool_input: { file_path: `${C}\\.taste-skill\\build.json`, content: "{}" } },
+    ps(`node C:\\x\\design-taste-frontend\\scripts\\gate.mjs --hook claude`),
+  ];
+  for (const e of designEnvs) {
+    for (const c of dAllow) kinds.push([e, 0, c]);
+    for (const c of dDeny) kinds.push([e, 2, c]);
+  }
+  // flag off: every engine and search.py call is refused
+  const off = { ...env, [PREFIX + "_MODE"]: "BUILD" };
+  kinds.push([off, 2, ps(`${E} context`)], [off, 2, ps(`${PY} 'focus' --domain ux`)]);
+}
 let failed = 0;
 function run(c, e = env) {
   const r = spawnSync(process.execPath, [path.join(here, "guard.mjs")], { input: JSON.stringify(c), env: e, encoding: "utf8" });
