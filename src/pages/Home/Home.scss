@@ -249,7 +249,8 @@ section[id] { scroll-margin-top: 84px; }
 
 /* ============ capabilities ============ */
 .hp-caps { padding: 100px 0; }
-.hp-matrix { border-top: 1px solid var(--border); }
+.hp-matrix { border-top: 1px solid var(--border); margin: 0; }
+.hp-matrix dd { margin: 0; }
 .hp-row {
     display: grid;
     grid-template-columns: 220px 1fr;

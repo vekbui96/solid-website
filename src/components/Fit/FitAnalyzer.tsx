@@ -46,6 +46,15 @@ export const FitAnalyzer = () => {
     const [report, setReport] = createSignal<FitReport | null>(null);
     const [dial, setDial] = createSignal(0);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let textareaEl: HTMLTextAreaElement | undefined;
+
+    // what the polite live region says: nothing while idle, then progress, then the result
+    const announcement = () => {
+        if (status() === "analyzing") return "Analyzing the job description…";
+        const r = report();
+        if (status() === "done" && r) return `Analysis ready: match score ${r.matchScore} out of 100, ${r.bin}. ${r.headline}`;
+        return "";
+    };
 
     const reduce = () =>
         typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -79,7 +88,8 @@ export const FitAnalyzer = () => {
     onCleanup(() => clearTimeout(timer));
 
     const useSample = (k: string) => { setInput(SAMPLES[k]); setStatus("idle"); setReport(null); };
-    const reset = () => { setStatus("idle"); setReport(null); setDial(0); };
+    // the reset button removes itself, so hand keyboard focus back to the input
+    const reset = () => { setStatus("idle"); setReport(null); setDial(0); textareaEl?.focus(); };
 
     // radar geometry (viewBox 200x200, center 100,100, radius 78)
     const pt = (axis: Axis, v: number, i: number) => {
@@ -116,6 +126,7 @@ export const FitAnalyzer = () => {
 
                 <div class="fa-input-wrap">
                     <textarea
+                        ref={textareaEl}
                         class="fa-textarea"
                         rows="6"
                         placeholder="Paste a job description…"
@@ -124,7 +135,7 @@ export const FitAnalyzer = () => {
                         onInput={(e) => setInput(e.currentTarget.value)}
                     />
                     <div class="fa-controls">
-                        <div class="fa-samples">
+                        <div class="fa-samples" role="group" aria-label="Try a sample job description">
                             <span class="fa-try">Try:</span>
                             <button class="fa-chip" onClick={() => useSample("ai")}>AI Engineer</button>
                             <button class="fa-chip" onClick={() => useSample("fullstack")}>Full-Stack</button>
@@ -136,6 +147,9 @@ export const FitAnalyzer = () => {
                     </div>
                     <p class="fa-privacy">🔒 Analyzed in your browser — your text never leaves this page or gets stored.</p>
                 </div>
+
+                {/* screen-reader announcement; always rendered so changes are spoken */}
+                <p class="fa-sr" role="status" aria-live="polite" aria-atomic="true">{announcement()}</p>
 
                 {/* reasoning timeline */}
                 <Show when={status() === "analyzing"}>
