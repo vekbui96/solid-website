@@ -21,7 +21,8 @@
     "build": "vite build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "build:all": "vite build && storybook build -o dist/storybook",
+    "build:all": "vite build && node scripts/check-bundle-size.mjs && storybook build -o dist/storybook",
+    "size": "node scripts/check-bundle-size.mjs",
     "deploy": "yarn build:all && gh-pages -d dist"
   },
   "devDependencies": {
