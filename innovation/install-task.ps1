@@ -136,7 +136,12 @@ if ($ServerEnabled) {
         [IO.File]::WriteAllText((Join-Path $ElevHome 'config\known_hosts'), "$githubKey`n", $utf8)
         $sshCfg = "Host $alias`n  HostName github.com`n  User git`n  IdentityFile `"$(& $fwd $keyPath)`"`n  IdentitiesOnly yes`n  UserKnownHostsFile `"$(& $fwd (Join-Path $ElevHome 'config\known_hosts'))`"`n  GlobalKnownHostsFile /dev/null`n  StrictHostKeyChecking yes`n  ProxyCommand none`n  ProxyJump none`n"
         [IO.File]::WriteAllText((Join-Path $ElevHome 'config\ssh_config'), $sshCfg, $utf8)
-        $gc = "[core]`n`tsshCommand = `"$(& $fwd $gitSsh)`" -F `"$(& $fwd (Join-Path $ElevHome 'config\ssh_config'))`"`n[safe]`n`tdirectory = $(& $fwd $live)`n"
+        # git's config parser strips double quotes, and git runs core.sshCommand through sh, so a double-quoted
+        # "C:/Program Files/..." arrives unquoted and splits at the space. Single quotes are kept literally by git
+        # and honoured by sh; refuse paths that contain one (or a config comment character) rather than escape.
+        $sshExe = & $fwd $gitSsh; $sshCfgPath = & $fwd (Join-Path $ElevHome 'config\ssh_config')
+        foreach ($p in @($sshExe, $sshCfgPath)) { if ($p -match "['`";#\\]") { throw "path not safe to quote in core.sshCommand: $p" } }
+        $gc = "[core]`n`tsshCommand = '$sshExe' -F '$sshCfgPath'`n[safe]`n`tdirectory = $(& $fwd $live)`n"
         [IO.File]::WriteAllText((Join-Path $ElevHome 'config\gitconfig'), $gc, $utf8)
         if (-not (Test-Path -LiteralPath (Join-Path $live '.git'))) {
             $env:GIT_CONFIG_GLOBAL = Join-Path $ElevHome 'config\gitconfig'; $env:GIT_CONFIG_NOSYSTEM = '1'
