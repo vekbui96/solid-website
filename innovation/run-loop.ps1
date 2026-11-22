@@ -159,6 +159,7 @@ function Get-LoopQueue {
         $q = $json | ConvertFrom-Json
         if ($q.PSObject.Properties.Name -contains 'error' -or -not ($q.PSObject.Properties.Name -contains 'slots')) { Write-Log "queue check failed: $json" 'WARN'; return $null }
         Publish-ViaSpecNotices $q
+        Publish-SliceWaitNotices $q
         return $q
     } catch { Write-Log "queue check failed: $_" 'WARN'; return $null }
 }
@@ -174,6 +175,67 @@ function Publish-ViaSpecNotices {
         if ($script:ViaSpecNoticed.ContainsKey($n)) { continue }
         try {
             $body = Format-ViaSpecNotice -Spec ([int]$v.spec) -ApprovedAt "$($v.specApprovedAt)" -Who $OwnerName -Marker $script:Marker
+            $tmp = Join-Path $script:LoopHome "state\viaspec-$n.json"
+            [IO.File]::WriteAllText($tmp, (@{ body = $body } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
+            $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $out = & $script:GhExe api "repos/$($script:HubRepo)/issues/$n/comments" -X POST --input $tmp 2>&1 | ForEach-Object { "$_" }
+            $code = $LASTEXITCODE; $ErrorActionPreference = $prev
+            if ($code -eq 0) { $script:ViaSpecNoticed[$n] = $true; Write-Log "#${n}: auto-approved via spec #$($v.spec); notice posted" }
+            else { Write-Log "#${n}: could not post the auto-approval notice: $((@($out) | Select-Object -Last 1))" 'WARN' }
+        } catch { Write-Log "#${n}: auto-approval notice failed: $_" 'WARN' }
+    }
+}
+# Slices that wait on an open Manual earlier slice of their spec (check-approval.ps1 -List `waitingOnSlice`,
+# gate-rules.ps1 Get-SliceWaitDecision). They are not in `buildable`, so no session starts for them ($0); their
+# labels stay as they are (never loop:failed). The ONE "Waiting on slice k" comment per slice is posted here
+# (noticed = false), never in a dry run; a failure is a warning and is retried by the next queue check.
+$script:SliceWaitNoticed = @{}
+function Publish-SliceWaitNotices {
+    param($Q)
+    if ($null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'waitingOnSlice')) { return }
+    foreach ($w in @(Select-SliceWaitNotices -Waiting @($Q.waitingOnSlice) -Posted $script:SliceWaitNoticed)) {
+        $n = [int]$w.issue
+        if ($DryRun) { Write-Log "#${n}: waiting-on-slice $(Format-SliceWaitList @($w.blockers)) (dry run: notice not posted)"; $script:SliceWaitNoticed[$n] = $true; continue }
+        try {
+            $body = Format-SliceWaitNotice -Blockers @($w.blockers) -Marker $script:Marker
+            $tmp = Join-Path $script:LoopHome "state\slicewait-$n.json"
+            [IO.File]::WriteAllText($tmp, (@{ body = $body } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
+            $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $out = & $script:GhExe api "repos/$($script:HubRepo)/issues/$n/comments" -X POST --input $tmp 2>&1 | ForEach-Object { "$_" }
+            $code = $LASTEXITCODE; $ErrorActionPreference = $prev
+            if ($code -eq 0) { $script:SliceWaitNoticed[$n] = $true; Write-Log "#${n}: waiting-on-slice $(Format-SliceWaitList @($w.blockers)); notice posted" }
+            else { Write-Log "#${n}: could not post the waiting-on-slice notice: $((@($out) | Select-Object -Last 1))" 'WARN' }
+        } catch { Write-Log "#${n}: waiting-on-slice notice failed: $_" 'WARN' }
+    }
+}
+# 'Waiting on a Manual earlier slice: #117 (slice 2 (#111, Manual))', or '' when none (summary, run data, log).
+function Format-SliceWaitLine {
+    param($Q)
+    if ($null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'waitingOnSlice')) { return '' }
+    $w = @($Q.waitingOnSlice | Where-Object { $_ })
+    if ($w.Count -eq 0) { return '' }
+    return "Waiting on a Manual earlier slice (skipped, labels unchanged): $(@($w | ForEach-Object { "#$($_.issue) ($(Format-SliceWaitList @($_.blockers)))" }) -join '; ')"
+}
+# The run-data form of the same: {issue, spec, k, blockers[{k, issue}], noticed}, status waiting-on-slice.
+function Get-SliceWaitRunData {
+    param($Q)
+    if ($null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'waitingOnSlice')) { return @() }
+    return @($Q.waitingOnSlice | Where-Object { $_ } | ForEach-Object {
+            [ordered]@{ issue = [int]$_.issue; status = 'waiting-on-slice'; spec = [int]$_.spec; k = [int]$_.k
+                blockers = @($_.blockers | ForEach-Object { [ordered]@{ k = [int]$_.k; issue = [int]$_.issue } }) } })
+}
+# The ONE comment on a slice the first time it is treated as auto-approved through its spec (check-approval.ps1
+# -List `viaSpec`, noticed = false). Runner side (same gh and rights as the queue check), never in a dry run;
+# a failure is a warning and is retried by the next queue check.
+$script:ViaSpecNoticed = @{}
+function Publish-ViaSpecNotices {
+    param($Q)
+    if ($DryRun -or $null -eq $Q -or -not ($Q.PSObject.Properties.Name -contains 'viaSpec')) { return }
+    foreach ($v in @($Q.viaSpec | Where-Object { $_ -and -not $_.noticed })) {
+        $n = [int]$v.issue
+        if ($script:ViaSpecNoticed.ContainsKey($n)) { continue }
+        try {
+            $body = Format-ViaSpecNotice -Spec ([int]$v.spec) -ApprovedAt "$($v.specApprovedAt)" -Who 'Ve' -Marker $script:Marker
             $tmp = Join-Path $script:LoopHome "state\viaspec-$n.json"
             [IO.File]::WriteAllText($tmp, (@{ body = $body } | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding $false))
             $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
@@ -205,6 +267,8 @@ function Format-QueueLine {
     if ($sp.Count -gt 0) { $s += "; approved specs: $(@($sp | ForEach-Object { "#$($_.issue) ($(@($_.toOpen).Count) of $($_.of) slices still to open)" }) -join ', ')" }
     $w = Format-WaitingOnOwner -Waiting @($Q.waitingOnOwner) -Who $OwnerName
     if ($w) { $s += "; $w" }
+    $ws = Format-SliceWaitLine $Q
+    if ($ws) { $s += "; $ws" }
     return $s
 }
 function Get-QueueLabels {
@@ -485,6 +549,7 @@ try {
     $pre = Get-PrecheckDecision -Queue $queue -Mode $mode -Budget $budget -Deferred @($deferred | ForEach-Object { $_.Issue }) -PhaseBAllowed $pbOk
     Write-Log "queue: $(Format-QueueLine $queue)"
     if ($deferred.Count -gt 0) { Write-Log "Phase A: $(Format-Deferred $deferred $budget.Verdict)"; [void]$runNotes.Add("Phase A: $(Format-Deferred $deferred $budget.Verdict)") }
+    if ($mode -eq 'FULL' -and (Format-SliceWaitLine $queue)) { [void]$runNotes.Add("Phase A: $(Format-SliceWaitLine $queue)") }
     Write-Log "precheck: launch=$($pre.Launch) ($($pre.Reason))"
     if (-not $pre.Launch) {
         $waitLine = Format-WaitingOnOwner -Waiting @($queue.waitingOnOwner) -Who $OwnerName
@@ -498,6 +563,8 @@ try {
                 "- Phase B: $(if (-not $pbOk) { "the $pbKind model is not allowed by the $($budget.Reason)" } else { "no free proposal slot ($(@($queue.slots.awaitingReview).Count) proposals awaiting review, cap $($queue.slots.cap); approved and failed proposals do not count)" }).")
         }
         if ($waitLine) { $sumLines += "- $waitLine" }
+        $sliceWaitLine = Format-SliceWaitLine $queue
+        if ($sliceWaitLine) { $sumLines += "- $sliceWaitLine" }
         $resLine = 'LOOP-RESULT: NOTHING-TO-DO'
         if ($pre.Hold) { $resLine += ' plan budget hold (no claude session)' }
         elseif ($deferred.Count -gt 0 -or -not $pbOk) { $resLine += " plan budget $($budget.Verdict) (Opus sessions deferred)" }
@@ -508,7 +575,7 @@ try {
             $utf8 = New-Object Text.UTF8Encoding $false
             [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.summary.txt"), ($sumLines -join "`r`n"), $utf8)
             $rd = [ordered]@{ runId = $RunId; mode = $mode; status = 'NOTHING-TO-DO'; precheck = $pre.Reason; claudeStarted = $false
-                totals = [ordered]@{ Turns = 0; Input = 0; Output = 0; CacheRead = 0; CacheWrite = 0; Cost = 0 }; sessions = @(); waitingOnOwner = $waitLine
+                totals = [ordered]@{ Turns = 0; Input = 0; Output = 0; CacheRead = 0; CacheWrite = 0; Cost = 0 }; sessions = @(); waitingOnOwner = $waitLine; waitingOnSlice = @(Get-SliceWaitRunData $queue)
                 budget = [ordered]@{ verdict = $budget.Verdict; reason = $budget.Reason; failedOpen = $budget.Warn; deferred = @($deferred | ForEach-Object { $_.Issue }) } }
             [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.rundata.json"), ($rd | ConvertTo-Json -Depth 5), $utf8)
             Write-Log 'result: subtype=precheck is_error=False turns=0 cost=0 (no claude session)'
@@ -733,12 +800,14 @@ try {
     $finalQueue = Get-LoopQueue
     $waitLine = Format-WaitingOnOwner -Waiting @($finalQueue.waitingOnOwner) -Who $OwnerName
     [void]$sum.Add(''); if ($waitLine) { [void]$sum.Add($waitLine) } else { [void]$sum.Add("Failed, waiting on ${OwnerName}: none") }
+    $sliceWaitLine = Format-SliceWaitLine $finalQueue
+    if ($sliceWaitLine) { [void]$sum.Add($sliceWaitLine) }
     [void]$sum.Add($res.Line)
     [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.summary.txt"), ($sum -join "`r`n"), $utf8)
     $tc = [double]0; $tt = 0; foreach ($s in $sessions) { if ($null -ne $s.Cost) { $tc += [double]$s.Cost }; $tt += [int]$s.Turns }
     # never a second `cost=` key: tooling sums cost= over the per-session result lines
     Write-Log ("run total: sessions={0} turns={1} usd={2}" -f $sessions.Count, $tt, $tc.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture))
-    $rd = [ordered]@{ runId = $RunId; mode = $mode; status = $res.Status; claudeStarted = ($sessions.Count -gt 0); waitingOnOwner = $waitLine
+    $rd = [ordered]@{ runId = $RunId; mode = $mode; status = $res.Status; claudeStarted = ($sessions.Count -gt 0); waitingOnOwner = $waitLine; waitingOnSlice = @(Get-SliceWaitRunData $finalQueue)
         sessions = @($sessions | ForEach-Object { [ordered]@{ kind = $_.Kind; issue = $_.Issue; model = $_.Model; endClass = $_.EndClass; status = $_.Status; turns = $_.Turns; cost = $_.Cost } })
         totals = [ordered]@{ Turns = $tt; Cost = $tc } }
     [IO.File]::WriteAllText((Join-Path $script:LoopHome "logs\run-$RunId.rundata.json"), ($rd | ConvertTo-Json -Depth 5), $utf8)
