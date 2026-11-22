@@ -3,6 +3,7 @@ import { ProjectShowcase } from "../../components/Projects/ProjectShowcase";
 import { FitAnalyzer } from "../../components/Fit/FitAnalyzer";
 import { ContactForm } from "../../components/Contact/ContactForm";
 import { reveal } from "../../utils/reveal";
+import { jumpTo } from "../../utils/jumpTo";
 // @ts-ignore
 import styles from "./Home.scss?inline"
 
@@ -14,8 +15,7 @@ export const Home = () => {
     let projectsRef: HTMLElement | undefined;
     let fitRef: HTMLElement | undefined;
 
-    const scrollTo = (el?: HTMLElement) =>
-        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const scrollTo = (el?: HTMLElement) => jumpTo(el);
 
     return (
         <>
