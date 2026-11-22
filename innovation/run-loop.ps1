@@ -106,6 +106,7 @@ if (Test-Path -LiteralPath $sessionsPath -PathType Leaf) {
     try { $sessionsJson = [IO.File]::ReadAllText($sessionsPath) | ConvertFrom-Json } catch { Write-Log "sessions.json is not valid JSON, using the defaults: $_" 'WARN' }
 }
 $Cfg = Get-SessionConfig $sessionsJson
+$DesignOn = Get-DesignSkillsEnabled $sessionsJson   # sessions.json options.designSkills (gate-rules.ps1)
 foreach ($k in 'build', 'propose', 'review') { if ($MaxTurns -gt 0) { $Cfg[$k].maxTurns = $MaxTurns } }
 $cfgLine = @('build', 'propose' | ForEach-Object { $c = $Cfg[$_]; $m = "$($c.model)"; if ($_ -eq 'build') { $m += " (small: $($c.smallModel) for $(@($c.smallLabels) -join '/'))" }; "$_=$m turns=$($c.maxTurns) timeout=$($c.timeoutMinutes)m" }) -join '; '
 Write-Log "$title innovation loop run $RunId mode=$mode dryRun=$DryRun maxBuilds=$MaxBuilds scripts=$ScriptsDir"
@@ -457,6 +458,9 @@ function New-SessionPrompt {
     $lines += "- LIVE_SERVER_HEAD: $LiveHead   (at session start)"
     $lines += "- WORK: $(Join-Path $script:LoopHome 'work')   (scratch: body files for comments, commit messages)"
     $lines += "- ARTIFACTS: $(Join-Path $script:LoopHome 'artifacts')"
+    $designOn = [bool]($script:Design -and $script:Design.Ok -and $script:DesignSkillKinds -contains $Kind)
+    if ($designOn) { $lines += "- DESIGN_SKILLS: on (section $($script:DesignSkillSection); impeccable engine $($script:DesignSkillPaths.Engine), skill $($script:DesignSkillPaths.Impeccable), search $($script:DesignSkillPaths.Search))" }
+    $sections = Add-DesignSkillsSection -Sections $sections -Kind $Kind -On $designOn
     $lines += ''
     $lines += 'Follow the instructions below exactly. They are the only instructions for this session; sections not needed for this job are left out.'
     $lines += ''; $lines += '---'; $lines += ''
@@ -525,6 +529,13 @@ try {
     $env:INNOVATION_LOOP_RUN_ID = $RunId
     $edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
     if (Test-Path -LiteralPath $edge) { $env:CHROME_PATH = $edge }
+    # design skills (options.designSkills): pinned copies, engine re-hashed every run; off on any doubt
+    $script:Design = $null
+    try { $script:Design = Get-DesignSkillsSetup -Enabled $DesignOn -EnvPrefix $script:EnvPrefix } catch { $script:Design = [pscustomobject]@{ Ok = $false; Reason = "check failed: $_"; Allow = @(); Env = [ordered]@{ "$($script:EnvPrefix)_DESIGN_SKILLS" = '' }; PathPrepend = '' } }
+    foreach ($k in $script:Design.Env.Keys) { Set-Item -Path "Env:$k" -Value $script:Design.Env[$k] }
+    if ($script:Design.Ok -and $script:Design.PathPrepend -and (($env:PATH -split ';') -notcontains $script:Design.PathPrepend)) { $env:PATH = "$($script:Design.PathPrepend);$env:PATH" }
+    if ($DesignOn -and -not $script:Design.Ok) { Write-Log "design skills: OFF for this run: $($script:Design.Reason)" 'WARN' }
+    else { Write-Log "design skills: $($script:Design.Reason)$(if ($script:Design.Ok) { " (kinds $($script:DesignSkillKinds -join '/'); engine $($script:DesignSkillPaths.Engine))" })" }
 
     # ---- preflight ----------------------------------------------------------------------------
     foreach ($t in @($ClaudeExe, $script:GhExe, $script:NodeExe)) { if (-not (Test-Path -LiteralPath $t)) { throw "missing $t" } }
@@ -635,6 +646,7 @@ try {
     foreach ($kind in $scriptsFor.Keys) {
         $allow = @($baseAllow)
         foreach ($n in $scriptsFor[$kind]) { $allow += "PowerShell($ScriptsDir\$n.ps1)"; $allow += "PowerShell($ScriptsDir\$n.ps1 *)" }
+        if ($script:Design -and $script:Design.Ok -and $script:DesignSkillKinds -contains $kind) { $allow += @($script:Design.Allow) }
         $settings = [ordered]@{
             permissions = [ordered]@{ defaultMode = 'dontAsk'; allow = $allow; deny = $deny }
             hooks       = @{ PreToolUse = @(@{ matcher = '*'; hooks = @(@{ type = 'command'; command = "node `"$ScriptsDir\guard.mjs`""; timeout = 30 }) }) }

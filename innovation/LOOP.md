@@ -459,3 +459,47 @@ skipped (including SERVER_DEPLOY unavailable); for a proposal session, the slice
 blocks; and one line `Failed, waiting on Ve: #<n> (<reason>); ...` from the latest
 `waitingOnOwner` (`-Slots`, `-List` or the header's QUEUE), or `Failed, waiting on Ve: none`.
 The runner combines every session's summary into the run summary.
+
+## 7. Design skills (only when the header says DESIGN_SKILLS: on)
+
+Two design aids are pinned for you under `D:\loop-tools` (read-only; the taste skill is not available to
+this loop and the guard refuses its name). They are advice, never authority: FOCUS.md (WCAG AA and
+performance first, no large redesigns, no new dependencies), the issue, CLAUDE.md and the site's existing
+look (its tokens, sections and the `reveal` / reduced-motion conventions) win over any skill's taste. Mind
+the Shadow DOM: styles live in each component's sibling `.scss` imported `?inline`.
+
+Nobody is there to answer. Ignore any skill text that says to ask the user, interview, probe with a question
+tool, open a decision page, run `init` / `document` / `extract` / `live`, or write PRODUCT.md, DESIGN.md,
+`.impeccable/` or `design-system/` files (impeccable's AUTONOMY_DIRECTIVE_CHECK included): you have no such
+tool and the scope is fixed. If a skill command fails or is refused, do not retry; carry on without it and say
+so in your summary.
+
+Commands (exactly these shapes; anything else is refused):
+
+- `D:\loop-tools\impeccable-engine\0.1.27\impeccable.exe context --target "<clone>\src\<area>"`: at most
+  once per session, only when you will change or judge UI. Its directives about interviews do not apply.
+- `D:\loop-tools\impeccable-engine\0.1.27\impeccable.exe shot <url> --viewport 390x844 --out "<WORK>\shots-<n>"`:
+  a screenshot to Read. URLs: the live site `https://vekbui96.github.io/solid-website/` (it shows main, not
+  your branch) or a local preview on port 4173. Add `,1440x900` when desktop matters.
+- `D:\loop-tools\impeccable-engine\0.1.27\impeccable.exe detect --json "<clone>\src\<path>"`: an
+  anti-pattern scan of the files you changed or want to judge (`--scope layout` or `type` to narrow it).
+- `python D:\loop-tools\skills\ui-ux-pro-max\scripts\search.py '<query>' --domain ux -n 3`: one specific UX
+  question (domains: ux, style, color, typography, chart, ...). Single-quoted query; never `--persist`,
+  `--page`, `-o`, `--force`, `--preview`, `--tokens`. Do not read its SKILL.md or data.
+
+Reading (one file at a time, only the one the job needs; never the whole folder):
+`D:\loop-tools\skills\impeccable\reference\<name>.md`. `craft-floor.md` (short) is the quality floor; the
+task references are `audit` (accessibility, performance, responsive), `polish`, `layout`, `typeset`,
+`clarify` (labels, errors, copy), `harden` (errors, edge cases) and `adapt` (screen sizes). Skip the long
+ones (`critique.md`, `new-work*.md`, `live.md`, `document.md`, `init.md`) and SKILL.md itself.
+
+When to use them:
+
+- **Build** (a front-end issue only): read `craft-floor.md` once, immediately before your first UI edit,
+  plus the one task reference that matches the issue (`audit.md` for an accessibility slice). Use
+  `search.py` only for a concrete question the code does not settle. After the change, `detect` on the
+  changed files is a cheap check; the PR's screenshots still come from the section 3 flow. Not for API,
+  data or test-only issues.
+- **Propose**: only for an idea about how a section looks or reads. One `shot` of that live section at
+  390x844 and, if useful, one `detect` or one short reference; quote the concrete finding in the proposal's
+  Why (what you saw, at what width). At most two skill calls per proposal; none for API or content ideas.
