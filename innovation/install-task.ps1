@@ -1,188 +1,189 @@
 <#
 .SYNOPSIS
-  Register the innovation loop's two scheduled tasks, both DISABLED, and prepare the elevated API side.
+  Install (or update) this project's innovation loop scheduled tasks. Run from an ELEVATED PowerShell (an
+  SSH session to server-pc is elevated). The OWNER runs this, not an agent: it may ask for a password.
 
 .DESCRIPTION
-  Run from an ELEVATED PowerShell. It does not run either task.
+  1. innovation-loop-<project>          daily at -At, runs run-loop.ps1 from this checkout. Created DISABLED.
+                                         RunLevel Limited is only a statement of intent: Windows gives an admin
+                                         account's non-interactive logon a FULL token whatever the RunLevel or
+                                         logon type, so run-loop.ps1 drops rights itself (LowRights.cs) and
+                                         fails closed. Check the run log for "reduced child pid ... token:
+                                         elevated=0 ... adminState=deny-only".
+  2. innovation-loop-<project>-deploy   (only if server.enabled) NO trigger, RunLevel Highest, fixed action:
+                                           powershell -File C:\ProgramData\innovation-loop-<project>\bin\elevated-task.ps1
+                                         Its DACL also lets the owner's NON-elevated token start (and read) it,
+                                         nothing more. Only deploy.ps1 / rollback.ps1 / merge-pr.ps1 / run-loop.ps1
+                                         start it (schtasks /run), and only with a request file it validates.
+  3. Copies the elevated files (lib.ps1, loop.config.json, hooks-server.ps1, elevated-task.ps1,
+     deploy-server.ps1, rollback-server.ps1) to C:\ProgramData\innovation-loop-<project>\bin and locks the
+     folder to SYSTEM + Administrators (full) and Users (read/execute). The elevated task never runs a file
+     a non-elevated process can edit; changing what runs elevated needs this script, elevated, again
+     (-ElevatedOnly). run-loop.ps1 hash-compares the copy every run and refuses server deploys on a mismatch.
 
-  1. "InnovationLoop": daily at -At (13:17), run whether logged on or not, as SERVER-PC\VeBui. Runs
-     run-loop.ps1 -> claude -p. Logon type -LoopLogonType: S4U (default, no stored password) or Password
-     (asks for VeBui's password in the console; Task Scheduler stores it).
-     The task is registered RunLevel Limited, but that does NOT make it non-elevated: Windows gives a
-     non-interactive logon of an admin account no UAC split token, so the task starts with a full admin token
-     whatever the RunLevel or logon type. The loop is non-elevated because run-loop.ps1 drops its own rights
-     (reduced-token.ps1) before doing anything else, and fails closed if it cannot. Verify in the run log:
-       "reduced inner runner pid N; its token: TokenElevation=0 ... Administrators=deny-only"
-       "claude pid N token: TokenElevation=0 ... Administrators=deny-only"
+  Logon type (-LogonType): S4U (default; no stored password, runs while logged off; the loop reaches GitHub
+  with SSH deploy keys and the gh token from the profile, not Windows network credentials) or Password
+  (asks in the CONSOLE with Read-Host -AsSecureString: Get-Credential is a GUI dialog that never appears
+  over SSH; an empty password is refused because Task Scheduler cannot store one).
 
-  Works over SSH: nothing here opens a GUI dialog (passwords are read with Read-Host -AsSecureString).
-  2. "innovation-loop-api": NO trigger, RunLevel HIGHEST, as SERVER-PC\VeBui (S4U logon by default: no
-     stored password; it needs only local files and SSH to GitHub). Its only action is
-       powershell -File C:\ProgramData\innovation-loop-api\bin\api-runner.ps1 -Root ... -QueueDir ...
-     The loop starts it with `schtasks /run` and talks to it only through a request file (api-request.ps1).
-     The task's security descriptor also grants VeBui read+run, so a non-elevated process can start it.
-  3. C:\ProgramData\innovation-loop-api (the API side's home): bin\ (copies of api-runner.ps1, lib.ps1,
-     deploy-api.ps1, rollback-api.ps1), clones\, state\, logs\, results\, api-backups\, m2\, home\, tmp\.
-     DACL: SYSTEM + Administrators full control; VeBui and OWNER RIGHTS read+execute only (OWNER RIGHTS
-     removes the owner's implicit right to rewrite the DACL); owner Administrators; High integrity label
-     (no write-up from medium-integrity processes). Net effect: the non-elevated loop can read results
-     and logs but cannot change the code or state that runs elevated.
-
-  Re-run this after pulling changes to the API-side scripts: the elevated task runs the COPIES in bin\,
-  never the files in D:\projects (which the non-elevated loop could modify).
-
-  Enable when ready (both):  Enable-ScheduledTask -TaskName InnovationLoop; Enable-ScheduledTask -TaskName innovation-loop-api
-  Disable:                   Disable-ScheduledTask -TaskName InnovationLoop
-  Remove:                    Unregister-ScheduledTask -TaskName InnovationLoop -Confirm:$false  (same for innovation-loop-api)
+  Afterwards, from a NORMAL (non-admin) PowerShell, prove the non-elevated trigger works:
+     powershell -ExecutionPolicy Bypass -File <this dir>\run-loop.ps1 -SelfTest
+  Enable when ready:  Enable-ScheduledTask -TaskName innovation-loop-<project>
+  Remove the tasks:   .\install-task.ps1 -Uninstall
+  Generic (from the innovation-loop kit).
 #>
 [CmdletBinding()]
 param(
-    [string]$LoopTaskName = 'InnovationLoop',
-    [string]$ApiTaskName = 'innovation-loop-api',
-    [string]$At = '13:17',
-    [string]$User = 'SERVER-PC\VeBui',
-    [string]$ScriptPath = '',      # default: run-loop.ps1 next to this script (resolved below; $PSScriptRoot is empty in param defaults on PS 5.1 with -File)
-    [string]$ExtraArgs = '',                                       # e.g. '-ProposeOnly'
-    [string]$ApiRoot = 'C:\ProgramData\innovation-loop-api',
-    [string]$QueueDir = 'C:\Users\Ve Bui\.innovation-loop\api-queue',
-    [ValidateSet('S4U', 'Password')][string]$LoopLogonType = 'S4U',
-    [ValidateSet('S4U', 'Password')][string]$ApiLogonType = 'S4U',
-    [string]$ApiSshAlias = 'github-solid-website-api',          # existing ~\.ssh\config alias for the API deploy key
-    [switch]$ApiOnly,              # set up only the API side (used for testing the trigger path)
-    [switch]$EnableApiTask         # testing only; by default both tasks are left disabled
+    [string]$At = '',
+    [string]$User = '',
+    [string]$ExtraArgs = '',                          # e.g. '-ProposeOnly' for the supervised start
+    [ValidateSet('S4U', 'Password')][string]$LogonType = 'S4U',
+    [switch]$Uninstall,
+    [switch]$ElevatedOnly                             # only refresh the elevated copy + deploy task (after git pull)
 )
 $ErrorActionPreference = 'Stop'
-$here = $PSScriptRoot
-if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
-if (-not $ScriptPath) { $ScriptPath = Join-Path $here 'run-loop.ps1' }
-
-# Console password prompt (works over SSH; Get-Credential is a GUI dialog there and fails on empty passwords).
-function Read-TaskPassword {
-    param([string]$For)
-    $sec = Read-Host -AsSecureString "Password for $User ($For; Task Scheduler stores it)"
-    $plain = (New-Object System.Net.NetworkCredential('', $sec)).Password
-    if ([string]::IsNullOrEmpty($plain)) {
-        throw "empty password: a Password logon needs $User to have a password (Task Scheduler cannot store an empty one). Set one, or use -LoopLogonType S4U / -ApiLogonType S4U."
-    }
-    return $plain
-}
-
 $id = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not (New-Object Security.Principal.WindowsPrincipal $id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'run this from an elevated PowerShell'
 }
-$userSid = (New-Object Security.Principal.NTAccount $User).Translate([Security.Principal.SecurityIdentifier]).Value
+# $PSScriptRoot is empty in param() defaults under `powershell -File` on PS 5.1, so resolve everything here.
+$Here = $PSScriptRoot; if (-not $Here) { $Here = Split-Path -Parent $MyInvocation.MyCommand.Path }
+$cfg = [IO.File]::ReadAllText((Join-Path $Here 'loop.config.json')) | ConvertFrom-Json
+$Project = "$($cfg.project)"
+if ($Project -cnotmatch '^[a-z0-9][a-z0-9-]{1,40}$') { throw "bad project name '$Project' in loop.config.json" }
+if (-not $At) { $At = "$($cfg.schedule)"; if (-not $At) { $At = '14:23' } }
+if (-not $User) { $User = "$($cfg.windowsUser)"; if (-not $User) { $User = "$env:COMPUTERNAME\$env:USERNAME" } }
+$ServerEnabled = [bool]($cfg.server -and $cfg.server.enabled)
+$LoopTask = "innovation-loop-$Project"; if ($cfg.tasks -and "$($cfg.tasks.loop)") { $LoopTask = "$($cfg.tasks.loop)" }          # must match lib.ps1
+$DeployTask = "innovation-loop-$Project-deploy"; if ($cfg.tasks -and "$($cfg.tasks.deploy)") { $DeployTask = "$($cfg.tasks.deploy)" }
+$ElevHome = "C:\ProgramData\innovation-loop-$Project"   # must match lib.ps1
+$Bin = Join-Path $ElevHome 'bin'
+$Files = @('lib.ps1', 'loop.config.json', 'hooks-server.ps1', 'elevated-task.ps1', 'deploy-server.ps1', 'rollback-server.ps1')
+$RunLoop = Join-Path $Here 'run-loop.ps1'
 
-# ---- API side home ----------------------------------------------------------------------------
-foreach ($d in '', 'bin', 'clones', 'state', 'logs', 'results', 'lock', 'api-backups', 'api-staging', 'm2', 'home', 'tmp', 'work', 'artifacts') {
-    $p = Join-Path $ApiRoot $d
-    if (-not (Test-Path -LiteralPath $p)) { New-Item -ItemType Directory -Path $p | Out-Null }
+if ($Uninstall) {
+    foreach ($t in $LoopTask, $DeployTask) { if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $t -Confirm:$false; Write-Host "removed $t" } }
+    Write-Host "left $ElevHome in place (logs, deploy records, nonces); delete it by hand if wanted"
+    Write-Host "if this loop is in C:\ProgramData\innovation-loop-watch\watch-approvals.ps1, remove its entry there too"
+    return
 }
-foreach ($f in 'api-runner.ps1', 'lib.ps1', 'deploy-api.ps1', 'rollback-api.ps1') {
-    Copy-Item -LiteralPath (Join-Path $here $f) -Destination (Join-Path $ApiRoot "bin\$f") -Force
-}
-$utf8 = New-Object Text.UTF8Encoding $false
-$cloneFwd = (Join-Path $ApiRoot 'clones\solid-website-api') -replace '\\', '/'
-[IO.File]::WriteAllText((Join-Path $ApiRoot 'gitconfig'), "[safe]`n`tdirectory = $cloneFwd`n", $utf8)
-$repo = (Join-Path $ApiRoot 'm2\repository')
-[IO.File]::WriteAllText((Join-Path $ApiRoot 'maven-settings.xml'), "<settings><localRepository>$repo</localRepository></settings>`n", $utf8)
+if ($Here -match '\s') { throw "this checkout's path contains whitespace; the loop's permission rules need a path without spaces" }
 
-# SSH for the elevated fetch of the PRIVATE API repo. `ssh -G` resolves the existing host alias to its key
-# path (it reads the config, not the key). The elevated side then uses only <Root>\ssh_config (ssh -F), so
-# later edits to the user-writable ~\.ssh\config cannot add a ProxyCommand or change the host.
-$gitSsh = 'C:\Program Files\Git\usr\bin\ssh.exe'
-if (-not (Test-Path -LiteralPath $gitSsh)) { throw "Git's ssh.exe not found at $gitSsh" }
-$ErrorActionPreference = 'Continue'   # ssh writes notices to stderr; PS 5.1 would turn them into terminating errors
-$resolved = @(& $gitSsh -G $ApiSshAlias 2>&1 | ForEach-Object { "$_" })
-$hostName = ($resolved | Where-Object { $_ -like 'hostname *' } | Select-Object -First 1) -replace '^hostname ', ''
-$keyPath = ($resolved | Where-Object { $_ -like 'identityfile *' } | Select-Object -First 1) -replace '^identityfile ', ''
-if ($hostName -ne 'github.com') { throw "ssh alias $ApiSshAlias does not resolve to github.com (got '$hostName')" }
-if ($keyPath -like '~*') { $keyPath = $env:USERPROFILE + $keyPath.Substring(1) }
-$keyPath = $keyPath -replace '/', '\'
-if (-not (Test-Path -LiteralPath $keyPath)) { throw "deploy key for $ApiSshAlias not found at $keyPath" }
-# GitHub's published ed25519 host key (docs.github.com, "GitHub's SSH key fingerprints"), checked live below
-$githubKey = 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'
-$scan = @(& 'C:\Program Files\Git\usr\bin\ssh-keyscan.exe' -t ed25519 github.com 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -match '^github\.com ssh-ed25519 ' }) | Select-Object -First 1
-$ErrorActionPreference = 'Stop'
-if ($scan -ne $githubKey) { throw "github.com ed25519 host key from keyscan does not match the pinned key; refusing" }
-[IO.File]::WriteAllText((Join-Path $ApiRoot 'known_hosts'), "$githubKey`n", $utf8)
-$fwd = { param($x) $x -replace '\\', '/' }
-$sshCfg = @"
-Host $ApiSshAlias
-  HostName github.com
-  User git
-  IdentityFile "$(& $fwd $keyPath)"
-  IdentitiesOnly yes
-  UserKnownHostsFile "$(& $fwd (Join-Path $ApiRoot 'known_hosts'))"
-  GlobalKnownHostsFile /dev/null
-  StrictHostKeyChecking yes
-  ProxyCommand none
-  ProxyJump none
-"@
-[IO.File]::WriteAllText((Join-Path $ApiRoot 'ssh_config'), ($sshCfg -replace "`r`n", "`n"), $utf8)
-Write-Host "ssh config for the elevated side: alias $ApiSshAlias -> github.com with key $keyPath"
-
-& icacls.exe $ApiRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' "*${userSid}:(OI)(CI)RX" '*S-1-3-4:(OI)(CI)RX' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'icacls (DACL) failed' }
-& icacls.exe "$ApiRoot\*" /reset /T /C /Q | Out-Null
-& icacls.exe $ApiRoot /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
-& icacls.exe $ApiRoot /setintegritylevel '(OI)(CI)H' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'icacls (integrity label) failed' }
-Write-Host "API side home ready: $ApiRoot"
-
-# the user-writable request drop
-if (-not (Test-Path -LiteralPath $QueueDir)) { New-Item -ItemType Directory -Path $QueueDir | Out-Null }
-
-$settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
-    -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-
-# ---- API task: highest, no trigger, fixed action ------------------------------------------------
-$apiArg = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ApiRoot\bin\api-runner.ps1`" -Root `"$ApiRoot`" -QueueDir `"$QueueDir`""
-$apiAction = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument $apiArg -WorkingDirectory "$ApiRoot\bin"
-$apiPrincipal = New-ScheduledTaskPrincipal -UserId $User -LogonType $ApiLogonType -RunLevel Highest
-$apiTask = New-ScheduledTask -Action $apiAction -Settings $settings -Principal $apiPrincipal `
-    -Description 'Innovation loop API deploy/rollback (elevated). Started by api-request.ps1 via a request file; validates it in api-runner.ps1.'
 $password = $null
-if ($ApiLogonType -eq 'Password' -or ($LoopLogonType -eq 'Password' -and -not $ApiOnly)) {
-    $password = Read-TaskPassword -For 'so the tasks can run while logged off'
+if ($LogonType -eq 'Password') {
+    $sec = Read-Host -AsSecureString "Password for $User (Task Scheduler stores it so the tasks run while logged off)"
+    $password = (New-Object System.Net.NetworkCredential('', $sec)).Password
+    if ([string]::IsNullOrEmpty($password)) { throw "empty password: Task Scheduler cannot store one. Set a password for $User, or use -LogonType S4U." }
 }
-if ($ApiLogonType -eq 'Password') {
-    Register-ScheduledTask -TaskName $ApiTaskName -InputObject $apiTask -User $User -Password $password -Force | Out-Null
-} else {
-    Register-ScheduledTask -TaskName $ApiTaskName -InputObject $apiTask -Force | Out-Null
+function Register-LoopTask([string]$Name, $Task) {
+    if ($LogonType -eq 'Password') { Register-ScheduledTask -TaskName $Name -InputObject $Task -User $User -Password $password -Force | Out-Null }
+    else { Register-ScheduledTask -TaskName $Name -InputObject $Task -Force | Out-Null }
 }
-# let the non-elevated user start (and read) this one task
-$svc = New-Object -ComObject Schedule.Service; $svc.Connect()
-$t = $svc.GetFolder('\').GetTask($ApiTaskName)
-$sddl = $t.GetSecurityDescriptor(4)
-$ace = "(A;;GRGX;;;$userSid)"
-if ($sddl -notmatch [regex]::Escape($ace)) { $t.SetSecurityDescriptor($sddl + $ace, 0) }
-if ($EnableApiTask) { Enable-ScheduledTask -TaskName $ApiTaskName | Out-Null } else { Disable-ScheduledTask -TaskName $ApiTaskName | Out-Null }
-Write-Host "Registered $ApiTaskName ($(if ($EnableApiTask) { 'ENABLED' } else { 'DISABLED' }), no trigger, highest)"
+$settingsCommon = @{ MultipleInstances = 'IgnoreNew'; AllowStartIfOnBatteries = $true; DontStopIfGoingOnBatteries = $true }
 
-if ($ApiOnly) { return }
+if ($ServerEnabled) {
+    # ---- 1. admin-only copy of the elevated scripts ---------------------------------------------------
+    foreach ($d in $ElevHome, $Bin, (Join-Path $ElevHome 'results'), (Join-Path $ElevHome 'state'), (Join-Path $ElevHome 'logs'), (Join-Path $ElevHome 'lock'), (Join-Path $ElevHome 'config'), (Join-Path $ElevHome 'npm-cache')) {
+        if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d | Out-Null }
+    }
+    $acl = New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetAccessRuleProtection($true, $false)   # no inherited rules
+    $inherit = [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+    $none = [Security.AccessControl.PropagationFlags]::None
+    foreach ($rule in @(
+            (New-Object Security.AccessControl.FileSystemAccessRule('NT AUTHORITY\SYSTEM', 'FullControl', $inherit, $none, 'Allow')),
+            (New-Object Security.AccessControl.FileSystemAccessRule('BUILTIN\Administrators', 'FullControl', $inherit, $none, 'Allow')),
+            (New-Object Security.AccessControl.FileSystemAccessRule('BUILTIN\Users', 'ReadAndExecute', $inherit, $none, 'Allow')))) { $acl.AddAccessRule($rule) }
+    $acl.SetOwner((New-Object Security.Principal.NTAccount('BUILTIN\Administrators')))
+    Set-Acl -LiteralPath $ElevHome -AclObject $acl
+    foreach ($f in $Files) { Copy-Item -LiteralPath (Join-Path $Here $f) -Destination (Join-Path $Bin $f) -Force }
+    Copy-Item -LiteralPath (Join-Path $Here 'LowRights.cs') -Destination (Join-Path $Bin 'LowRights.cs') -Force   # lib.ps1 may load it
+    Get-ChildItem -LiteralPath $ElevHome -Recurse | ForEach-Object {
+        $a = Get-Acl -LiteralPath $_.FullName; $a.SetAccessRuleProtection($false, $false); Set-Acl -LiteralPath $_.FullName -AclObject $a
+    }
+    # empty, admin-owned git/npm config for the elevated side (lib.ps1 points GIT_CONFIG_GLOBAL / NPM_CONFIG_USERCONFIG here)
+    foreach ($c in 'gitconfig', 'npmrc') { $p = Join-Path $ElevHome "config\$c"; if (-not (Test-Path -LiteralPath $p)) { [IO.File]::WriteAllText($p, '') } }
 
-# ---- main loop task: daily -----------------------------------------------------------------------
-# RunLevel Limited is kept as a statement of intent, but it does not reduce anything for this logon (no
-# UAC split token); run-loop.ps1 drops its own rights. S4U needs no stored password: the loop reaches
-# GitHub with SSH keys and the gh token from the user profile, not with Windows network credentials.
-if (-not (Test-Path -LiteralPath $ScriptPath)) { throw "not found: $ScriptPath" }
-if (-not (Test-Path -LiteralPath (Join-Path (Split-Path $ScriptPath) 'reduced-token.ps1'))) { throw "reduced-token.ps1 not found next to $ScriptPath (run-loop.ps1 needs it to drop rights)" }
-$argument = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ScriptPath`" $ExtraArgs".Trim()
-$action = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument $argument -WorkingDirectory (Split-Path $ScriptPath)
-$trigger = New-ScheduledTaskTrigger -Daily -At $At
-$loopSettings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
-    -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RunOnlyIfNetworkAvailable
-$principal = New-ScheduledTaskPrincipal -UserId $User -LogonType $LoopLogonType -RunLevel Limited
-$task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $loopSettings -Principal $principal `
-    -Description 'Portfolio innovation loop (claude -p, LOOP.md). run-loop.ps1 drops its own rights (the task RunLevel alone does not). See D:\projects\solid-website\innovation\README.md'
-if ($LoopLogonType -eq 'Password') {
-    Register-ScheduledTask -TaskName $LoopTaskName -InputObject $task -User $User -Password $password -Force | Out-Null
+    # ---- 1b. optional: the elevated side's own clone of a PRIVATE server repo (server.elevatedClone) -------
+    # For an artifact service whose repo is private (no public fetch-only checkout to deploy from): server.liveDir
+    # is then a clone under <ElevHome>\clones that only the elevated side writes, fetched over SSH with an
+    # admin-only ssh_config (alias -> github.com, the deploy key's path, a pinned host key, no ProxyCommand), so
+    # edits to the user-writable ~\.ssh\config cannot change what the elevated git runs. The admin-owned
+    # gitconfig points core.sshCommand at it. The key file itself stays in the owner's profile (as before).
+    $ec = $null; if ($cfg.server -and $cfg.server.elevatedClone) { $ec = $cfg.server.elevatedClone }
+    if ($ec) {
+        $live = "$($cfg.server.liveDir)"
+        if (-not $live.StartsWith((Join-Path $ElevHome 'clones') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "server.elevatedClone needs server.liveDir under $ElevHome\clones (got '$live')" }
+        $alias = "$($ec.sshAlias)"; $url = "$($ec.url)"
+        if ($alias -notmatch '^[A-Za-z0-9._-]+$' -or $url -notmatch ('^git@' + [regex]::Escape($alias) + ':[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\.git$')) { throw "server.elevatedClone: bad sshAlias/url ('$alias', '$url')" }
+        $gitSsh = 'C:\Program Files\Git\usr\bin\ssh.exe'
+        if (-not (Test-Path -LiteralPath $gitSsh)) { throw "Git's ssh.exe not found at $gitSsh" }
+        $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'   # ssh writes notices to stderr
+        $resolved = @(& $gitSsh -G $alias 2>&1 | ForEach-Object { "$_" })
+        $scan = @(& 'C:\Program Files\Git\usr\bin\ssh-keyscan.exe' -t ed25519 github.com 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -match '^github\.com ssh-ed25519 ' }) | Select-Object -First 1
+        $ErrorActionPreference = $eap
+        $hostName = ($resolved | Where-Object { $_ -like 'hostname *' } | Select-Object -First 1) -replace '^hostname ', ''
+        $keyPath = ($resolved | Where-Object { $_ -like 'identityfile *' } | Select-Object -First 1) -replace '^identityfile ', ''
+        if ($hostName -ne 'github.com') { throw "ssh alias $alias does not resolve to github.com (got '$hostName')" }
+        if ($keyPath -like '~*') { $keyPath = $env:USERPROFILE + $keyPath.Substring(1) }
+        $keyPath = $keyPath -replace '/', '\'
+        if (-not (Test-Path -LiteralPath $keyPath)) { throw "deploy key for $alias not found at $keyPath" }
+        # GitHub's published ed25519 host key (docs.github.com, "GitHub's SSH key fingerprints"), checked live
+        $githubKey = 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'
+        if ($scan -ne $githubKey) { throw 'github.com ed25519 host key from ssh-keyscan does not match the pinned key; refusing' }
+        $utf8 = New-Object Text.UTF8Encoding $false
+        $fwd = { param($x) $x -replace '\\', '/' }
+        [IO.File]::WriteAllText((Join-Path $ElevHome 'config\known_hosts'), "$githubKey`n", $utf8)
+        $sshCfg = "Host $alias`n  HostName github.com`n  User git`n  IdentityFile `"$(& $fwd $keyPath)`"`n  IdentitiesOnly yes`n  UserKnownHostsFile `"$(& $fwd (Join-Path $ElevHome 'config\known_hosts'))`"`n  GlobalKnownHostsFile /dev/null`n  StrictHostKeyChecking yes`n  ProxyCommand none`n  ProxyJump none`n"
+        [IO.File]::WriteAllText((Join-Path $ElevHome 'config\ssh_config'), $sshCfg, $utf8)
+        $gc = "[core]`n`tsshCommand = `"$(& $fwd $gitSsh)`" -F `"$(& $fwd (Join-Path $ElevHome 'config\ssh_config'))`"`n[safe]`n`tdirectory = $(& $fwd $live)`n"
+        [IO.File]::WriteAllText((Join-Path $ElevHome 'config\gitconfig'), $gc, $utf8)
+        if (-not (Test-Path -LiteralPath (Join-Path $live '.git'))) {
+            $env:GIT_CONFIG_GLOBAL = Join-Path $ElevHome 'config\gitconfig'; $env:GIT_CONFIG_NOSYSTEM = '1'
+            $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            & git clone --quiet $url $live 2>&1 | ForEach-Object { Write-Host "  $_" }
+            $code = $LASTEXITCODE; $ErrorActionPreference = $eap
+            if ($code -ne 0) { throw "git clone $url -> $live failed (exit $code)" }
+            Write-Host "cloned $url into $live (elevated side only)"
+        } else { Write-Host "elevated clone present: $live" }
+    }
+    Write-Host "copied $($Files -join ', ') to $Bin (Users: read/execute only)"
+
+    # ---- 2. elevated deploy task: no trigger, fixed action ----------------------------------------------
+    $elevScript = Join-Path $Bin 'elevated-task.ps1'
+    $action = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$elevScript`"" -WorkingDirectory $Bin
+    $settings = New-ScheduledTaskSettingsSet @settingsCommon -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+    $principal = New-ScheduledTaskPrincipal -UserId $User -LogonType $LogonType -RunLevel Highest
+    $task = New-ScheduledTask -Action $action -Settings $settings -Principal $principal `
+        -Description "Elevated half of the $Project innovation loop: validates the request file and deploys/rolls back the server. No trigger. See $Here\README.md"
+    Register-LoopTask $DeployTask $task
+    # Let the owner's NON-elevated token start it: append (A;;GRGX;;;<SID>) to the task's DACL.
+    $sid = (New-Object Security.Principal.NTAccount($User)).Translate([Security.Principal.SecurityIdentifier]).Value
+    $svc = New-Object -ComObject Schedule.Service
+    $svc.Connect()
+    $t = $svc.GetFolder('\').GetTask($DeployTask)
+    $sddl = $t.GetSecurityDescriptor(4)   # DACL_SECURITY_INFORMATION
+    $ace = "(A;;GRGX;;;$sid)"
+    if ($sddl -notmatch [regex]::Escape($ace)) { $t.SetSecurityDescriptor($sddl + $ace, 0) }
+    Write-Host "registered $DeployTask (no trigger, highest privileges, $LogonType); DACL: $($t.GetSecurityDescriptor(4))"
 } else {
-    Register-ScheduledTask -TaskName $LoopTaskName -InputObject $task -Force | Out-Null
+    Write-Host 'server.enabled is false: no elevated deploy task, no ProgramData copy'
+}
+
+# ---- 3. the daily loop, disabled -------------------------------------------------------------------
+if (-not $ElevatedOnly) {
+    if (-not (Test-Path -LiteralPath $RunLoop)) { throw "not found: $RunLoop" }
+    $argument = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RunLoop`" $ExtraArgs".Trim()
+    $action = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument $argument -WorkingDirectory $Here
+    $trigger = New-ScheduledTaskTrigger -Daily -At $At
+    $settings = New-ScheduledTaskSettingsSet @settingsCommon -ExecutionTimeLimit (New-TimeSpan -Hours 5) -StartWhenAvailable -RunOnlyIfNetworkAvailable
+    $principal = New-ScheduledTaskPrincipal -UserId $User -LogonType $LogonType -RunLevel Limited
+    $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
+        -Description "$Project innovation loop (claude -p, LOOP.md). run-loop.ps1 drops its own rights (RunLevel alone does not). See $Here\README.md"
+    Register-LoopTask $LoopTask $task
+    Disable-ScheduledTask -TaskName $LoopTask | Out-Null
+    Write-Host "registered $LoopTask (DISABLED, daily $At, $LogonType logon; run-loop drops rights itself)"
 }
 $password = $null
-Disable-ScheduledTask -TaskName $LoopTaskName | Out-Null
-Get-ScheduledTask -TaskName $LoopTaskName, $ApiTaskName | Format-Table TaskName, State
-Write-Host "Created $LoopTaskName (DISABLED, $LoopLogonType logon; run-loop drops rights) and $ApiTaskName (DISABLED, highest, no trigger)."
-Write-Host "Enable both when ready: Enable-ScheduledTask -TaskName $LoopTaskName; Enable-ScheduledTask -TaskName $ApiTaskName"
+Get-ScheduledTask -TaskName $LoopTask, $DeployTask -ErrorAction SilentlyContinue | Format-Table TaskName, State
+Write-Host "Next, from a NORMAL PowerShell:  powershell -ExecutionPolicy Bypass -File $RunLoop -SelfTest"
