@@ -20,6 +20,21 @@ export const ContactForm = () => {
     const [feedback, setFeedback] = createSignal("");
     const [errors, setErrors] = createSignal<Record<string, string>>({});
 
+    // Element refs, so focus can move inside the shadow root (no document lookups).
+    let nameEl: HTMLInputElement | undefined;
+    let emailEl: HTMLInputElement | undefined;
+    let messageEl: HTMLTextAreaElement | undefined;
+
+    // After a rejected submit, put keyboard focus on the first invalid field in form order.
+    const focusFirstInvalid = (errs: Record<string, string>) => {
+        const order: [string, HTMLElement | undefined][] = [
+            ["name", nameEl],
+            ["email", emailEl],
+            ["message", messageEl],
+        ];
+        order.find(([f, el]) => errs[f] && el)?.[1]?.focus();
+    };
+
     const fieldErr = (f: string) => errors()[f];
     const nearMessageMax = () => message().length > MESSAGE_COUNT_FROM;
     const messageDescribedBy = () =>
@@ -48,7 +63,10 @@ export const ContactForm = () => {
         } else {
             setStatus("error");
             setFeedback(result.message);
-            if (result.fieldErrors) setErrors(result.fieldErrors);
+            if (result.fieldErrors) {
+                setErrors(result.fieldErrors);
+                focusFirstInvalid(result.fieldErrors);
+            }
         }
     };
 
@@ -59,6 +77,7 @@ export const ContactForm = () => {
                 <div class="cf-field">
                     <label class="cf-label" for="cf-name">Name</label>
                     <input
+                        ref={nameEl}
                         id="cf-name"
                         class="cf-input"
                         type="text"
@@ -70,13 +89,14 @@ export const ContactForm = () => {
                         aria-describedby={fieldErr("name") ? "cf-name-err" : undefined}
                     />
                     <Show when={fieldErr("name")}>
-                        <span id="cf-name-err" class="cf-err">{fieldErr("name")}</span>
+                        <span id="cf-name-err" class="cf-err" role="alert">{fieldErr("name")}</span>
                     </Show>
                 </div>
 
                 <div class="cf-field">
                     <label class="cf-label" for="cf-email">Email</label>
                     <input
+                        ref={emailEl}
                         id="cf-email"
                         class="cf-input"
                         type="email"
@@ -87,13 +107,14 @@ export const ContactForm = () => {
                         aria-describedby={fieldErr("email") ? "cf-email-err" : undefined}
                     />
                     <Show when={fieldErr("email")}>
-                        <span id="cf-email-err" class="cf-err">{fieldErr("email")}</span>
+                        <span id="cf-email-err" class="cf-err" role="alert">{fieldErr("email")}</span>
                     </Show>
                 </div>
 
                 <div class="cf-field">
                     <label class="cf-label" for="cf-message">Message</label>
                     <textarea
+                        ref={messageEl}
                         id="cf-message"
                         class="cf-input cf-textarea"
                         rows="5"
@@ -109,7 +130,7 @@ export const ContactForm = () => {
                         </span>
                     </Show>
                     <Show when={fieldErr("message")}>
-                        <span id="cf-message-err" class="cf-err">{fieldErr("message")}</span>
+                        <span id="cf-message-err" class="cf-err" role="alert">{fieldErr("message")}</span>
                     </Show>
                 </div>
 
