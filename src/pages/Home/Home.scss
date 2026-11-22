@@ -191,6 +191,8 @@ section[id] { scroll-margin-top: 84px; }
 }
 .hp-scene-dark .hp-act-body { color: var(--d-muted); }
 .hp-scene-dark .hp-punch strong { color: var(--d-accent); }
+/* --accent-ink (#0e7490) fails WCAG AA on the dark bg; match the other dark eyebrows */
+.hp-scene-dark .hp-eyebrow { color: var(--d-accent); }
 .hp-scene-dark .hp-diagram .n { fill: var(--d-surface); stroke: var(--d-border); }
 .hp-scene-dark .hp-diagram .lbl { fill: var(--d-text); }
 .hp-scene-dark .hp-diagram .edge { stroke: var(--d-border); }
