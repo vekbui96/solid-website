@@ -2,6 +2,7 @@ import { For, onMount, onCleanup, createSignal, createEffect } from 'solid-js';
 // @ts-ignore
 import styles from './NavBar.scss?inline'
 import { useGlobalContext } from '../../context/GlobalContext'
+import { jumpTo } from '../../utils/jumpTo'
 
 const links = [
     { id: "story", label: "Story" },
@@ -33,7 +34,7 @@ export const Navbar = () => {
 
     const go = (id: string) => {
         const r = root() as any;
-        r?.getElementById?.(id)?.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+        jumpTo(r?.getElementById?.(id));
     };
 
     // keep the active link visible inside the strip. Scrolls only the nav itself

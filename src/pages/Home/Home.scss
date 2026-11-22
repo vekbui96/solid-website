@@ -1,5 +1,7 @@
 /* ============ shared ============ */
 section[id] { scroll-margin-top: 84px; }
+/* jump buttons focus the target section (tabindex -1, never a Tab stop): no ring around the whole section */
+.hp-jump-target:focus { outline: none; }
 
 .hp-eyebrow {
     font-family: var(--font-mono);
