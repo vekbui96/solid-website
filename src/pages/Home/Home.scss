@@ -281,7 +281,7 @@ section[id] { scroll-margin-top: 84px; }
     font-size: 14px;
     color: var(--muted);
 }
-.hp-footer-links { display: flex; gap: 18px; }
+.hp-footer-links { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .hp-footer a { color: var(--muted); text-decoration: none; }
 .hp-footer a:hover { color: var(--text); }
 .hp-footer-built { font-family: var(--font-mono); font-size: 12px; }
