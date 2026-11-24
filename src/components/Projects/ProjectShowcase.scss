@@ -3,8 +3,15 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
 }
+.pj-status {
+    margin: 0 0 22px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--d-muted);
+}
+.pj-filter-count { opacity: 0.8; font-variant-numeric: tabular-nums; }
 .pj-filter {
     appearance: none;
     font-family: var(--font-mono);
