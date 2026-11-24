@@ -807,7 +807,9 @@ try {
             }
             $closed = @(Close-UnfinishedIssues -Issues @($n) -EndClass $s.EndClass -Since $s.Start -LimitMinutes $minutes -SessionModel $sm)
             $lbl = @(); try { $lbl = @((Get-GhJson @('api', "repos/$($script:HubRepo)/issues/$n")).labels | ForEach-Object { $_.name }) } catch { Write-Log "cannot read #$n labels: $_" 'WARN' }
-            $marker = [regex]::Match($s.Summary, "LOOP-ISSUE-END\s+#?$n\s+([a-z-]+)").Groups[1].Value
+            # not $marker: PowerShell names are case-insensitive and this scope is the script's, so $marker here
+            # overwrote $script:Marker (the loop's comment marker) and every later comment began with the outcome word
+            $endOutcome = [regex]::Match($s.Summary, "LOOP-ISSUE-END\s+#?$n\s+([a-z-]+)").Groups[1].Value
             $uncertain = @(); $mergedHere = $false
             foreach ($repo in $script:Repos) {
                 $cert = Get-DeployCertainty -SessionStart $s.Start -MergeRec (Read-RepoState 'merge' $n $repo.name) -DeployRec (Read-RepoState 'deploy' $n $repo.name) -RollbackRec (Read-RepoState 'rollback' $n $repo.name)
@@ -818,7 +820,7 @@ try {
                 if ($dr -and $dr.serverDeployed -and $dr.startedUtc -and ([datetime]$dr.startedUtc).ToUniversalTime() -ge $s.Start.ToUniversalTime()) { $serverUsed = "#$n" }
             }
             # a scope refusal that merged nothing is a skip (the next approved issue is built); anything merged is not
-            $outcome = Get-BuildOutcome -Labels $lbl -MarkerOutcome $marker -Merged $mergedHere
+            $outcome = Get-BuildOutcome -Labels $lbl -MarkerOutcome $endOutcome -Merged $mergedHere
             $built += [pscustomobject]@{ Issue = $n; Outcome = $outcome }
             Write-Log "build #$n ended: outcome=$outcome$(if ($closed.Count) { '; marked loop:failed by the runner' })$(if ($outcome -eq 'skipped' -and $lbl -contains 'loop:failed') { ' (refused on scope, nothing merged: Phase A goes on)' })"
             if ($uncertain.Count -gt 0) {
