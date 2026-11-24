@@ -45,6 +45,22 @@ export const ContactForm = () => {
     const submit = async (e: Event) => {
         e.preventDefault();
         if (status() === "sending") return;
+
+        // Browser-side check so an obviously bad form never costs a round trip
+        // (or a rate-limit hit). Deliberately loose; the server is the authority.
+        const local: Record<string, string> = {};
+        if (!name().trim()) local.name = "Please enter your name.";
+        if (!email().trim()) local.email = "Please enter your email address.";
+        else if (!/^\S+@\S+\.\S+$/.test(email().trim())) local.email = "Please enter a valid email address.";
+        if (!message().trim()) local.message = "Please enter a message.";
+        if (Object.keys(local).length) {
+            setStatus("error");
+            setFeedback("Please fix the highlighted fields.");
+            setErrors(local);
+            focusFirstInvalid(local);
+            return;
+        }
+
         setStatus("sending");
         setFeedback("");
         setErrors({});
