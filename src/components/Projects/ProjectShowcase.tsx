@@ -160,7 +160,7 @@ export const ProjectShowcase = () => {
                                                 {(step, i) => (
                                                     <>
                                                         <Show when={i() > 0}><i aria-hidden="true">→</i></Show>
-                                                        <span>{step}</span>
+                                                        <span class="pj-flow-step">{step}</span>
                                                     </>
                                                 )}
                                             </For>
