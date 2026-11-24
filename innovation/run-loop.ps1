@@ -888,9 +888,10 @@ try {
                 $prevD = $null; try { if (Test-Path -LiteralPath $dPath -PathType Leaf) { $prevD = [IO.File]::ReadAllText($dPath) | ConvertFrom-Json } } catch { }
                 $db = @(Get-QueueInts $dq 'buildable')
                 $dOpus = @($db | Where-Object { (Get-QueueBuildModel $dq ([int]$_) '').Opus })
-                $dBuilt = @(& $gv 'built' | Where-Object { $_ })
+                # Get-Variable -ValueOnly emits an array as ONE object: unroll it, or every count is 0 or 1
+                $dBuilt = @(& $gv 'built' | ForEach-Object { $_ } | Where-Object { $_ })
                 $dRes = & $gv 'res'; $dStatus = 'FAILED'; if ($dRes) { $dStatus = "$($dRes.Status)" } elseif ((& $gv 'exitCode') -eq 0) { $dStatus = 'NOTHING-TO-DO' }
-                $dProb = @(& $gv 'problems' | Where-Object { $_ })
+                $dProb = @(& $gv 'problems' | ForEach-Object { $_ } | Where-Object { $_ })
                 $ds = New-DrainState -RunId $RunId -Result $dStatus -Buildable $db -NeedsOpus $dOpus -Progress @($dBuilt | Where-Object { $_.Outcome -eq 'deployed' }).Count `
                     -RolledBack (@($dBuilt | Where-Object { $_.Outcome -eq 'rolled-back' }).Count -gt 0) -NeedsVe (@($dProb | Where-Object { "$_" -match 'UNCERTAIN' }).Count -gt 0) -Previous $prevD
                 [IO.File]::WriteAllText($dPath, ($ds | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
