@@ -282,9 +282,10 @@ function Invoke-FrontendDeploy {
 
 # ---- HOOK: front-end live verification ----------------------------------------------------------------
 # Verify by CONTENT, not status code: a blank SPA returns 200. Default: cache-busted index.html must name an
-# entry asset under frontend.assetBase; with -NotSignature the asset set must differ from the previous
-# build; every file reachable from index.html (its assets, then every chunk any fetched JS names, at ANY
-# depth: live-check.ps1 Find-InChunkGraph) must load; -ExpectString must be in one of them (screens are
+# entry asset under frontend.assetBase; with -NotSignature the signature (asset set + index.html hash) must
+# differ from the previous build; every file reachable from index.html (its assets, then every chunk any
+# fetched JS names, at ANY depth: live-check.ps1 Find-InChunkGraph) must load; -ExpectString must be in
+# index.html or one of them (screens are
 # code-split and nested: the entry alone, or one level of chunks, is a false negative) and -AbsentString in
 # none; then a headless render (smoke.mjs) must show a non-empty root with no uncaught error.
 # Asset names may be absolute ("/app/assets/x.js") or relative ("./assets/x.js"): both resolve against siteUrl.
@@ -304,10 +305,19 @@ function Resolve-SiteUrl {
     param([string]$Site, [string]$Ref)
     return ([uri]::new([uri]$Site, $Ref)).AbsoluteUri
 }
+# The build's signature: its asset set plus a hash of index.html itself (line endings normalised), so a
+# merge that only changes index.html (meta tags, the font link: same hashed bundles) still counts as a new
+# build and is not refused as "still serving the previous build" forever (#22, #39).
+function Get-PageSignature {
+    param([string]$Html)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $h = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes(("$Html" -replace "`r`n", "`n").Trim())) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+    return ((Get-AssetSet $Html) -join ',') + '|html:' + $h.Substring(0, 16)
+}
 function Get-FrontendSignature {
     $url = "$(Get-Cfg 'frontend.siteUrl' '')"
     if (-not $url) { return '' }
-    return ((Get-AssetSet (Invoke-Http -Url (Get-CacheBustedUrl $url)).Body) -join ',')
+    return (Get-PageSignature (Invoke-Http -Url (Get-CacheBustedUrl $url)).Body)
 }
 function Test-FrontendLive {
     param([string]$ExpectString = '', [string]$AbsentString = '', [string]$NotSignature = '', [string]$RepoForSmoke = '', [string]$ShotPath = '', [int]$TimeoutSec = 600)
@@ -320,7 +330,7 @@ function Test-FrontendLive {
     while ((Get-Date) -lt $deadline) {
         $page = Invoke-Http -Url (Get-CacheBustedUrl $site)
         $asset = Get-EntryAsset $page.Body
-        $sig = (Get-AssetSet $page.Body) -join ','
+        $sig = Get-PageSignature $page.Body
         if ($page.Status -ne 200 -or -not $asset) { $last = "page status=$($page.Status) entry=$asset" }
         elseif ($NotSignature -and $sig -eq $NotSignature) { $last = "still serving the previous build ($asset)" }
         else {
@@ -331,6 +341,10 @@ function Test-FrontendLive {
                 $entryName = $asset.Substring($assetBase.Length)
                 $fetch = { param([string]$Name) Invoke-Http -Url ($assetDir + $Name) }
                 $g = Find-InChunkGraph -Roots $roots -Fetch $fetch -Preloaded @{ $entryName = $entry } -ExpectString $ExpectString -AbsentString $AbsentString
+                # index.html is served bytes too: a head-only change (meta tags, link preview) can only be
+                # seen there, and its rollback must find the string gone from there as well
+                if ($ExpectString -and -not $g.Found -and $page.Body.Contains($ExpectString)) { $g.Found = $true; $g.FoundIn = 'index.html'; $g.FoundDepth = 0 }
+                if ($AbsentString -and -not $g.AbsentHit -and $page.Body.Contains($AbsentString)) { $g.AbsentHit = 'index.html' }
                 $bad = @($g.Unreachable).Count
                 Write-Log ("live entry={0} files={1} maxDepth={2} unreachable={3}{4} expect={5}{6} absentHit={7}{8}" -f $asset, @($g.Files).Count, $g.MaxDepth, $bad,
                     $(if ($bad) { ' (' + ((@($g.Unreachable) | Select-Object -First 5) -join ', ') + ')' } else { '' }),

@@ -194,8 +194,9 @@ origin/main, 15-minute age limit, nonce replay log, lock, scrubbed environment).
 `yarn install --frozen-lockfile` and `yarn deploy --repo git@github-solid-website:vekbui96/solid-website.git`
 (build:all + `gh-pages -d dist`) in the loop's clone at origin/main, after recording the current gh-pages sha
 (`~\.innovation-loop-portfolio\state\ghpages-last.json`), then waits for the Pages build of the new gh-pages
-commit. `Test-FrontendLive` proves the new build is served: the cache-busted page names a new `./assets/` set,
-every chunk reachable from it at any depth loads (`live-check.ps1`), `-ExpectString` is in one of them, the
+commit. `Test-FrontendLive` proves the new build is served: the cache-busted page is a new build (its
+`./assets/` set or its own bytes changed, so an `index.html`-only change counts), every chunk reachable from it
+at any depth loads (`live-check.ps1`), `-ExpectString` is in `index.html` or one of them, the
 Storybook sub-site and the resume PDF answer 200 (`frontend.extraLive`), and headless Edge renders
 `<main-page>`'s shadow root. Rollback: gh-pages is force-with-lease reset to the recorded sha (instant; only
 if gh-pages is still at that deploy), its Pages build awaited, then the merge is reverted on main, and the
