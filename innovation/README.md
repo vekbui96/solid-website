@@ -22,7 +22,7 @@ prompt naming its one job and only the [`LOOP.md`](LOOP.md) sections it needs, a
 and time limit from [`sessions.json`](sessions.json). A fresh, small session per job is much cheaper than
 one long session re-reading its whole context. Each run:
 
-1. **Phase A (build), up to `-MaxBuilds` (default 2) issues, one session each, strictly one after
+1. **Phase A (build), up to `-MaxBuilds` (default 4) issues, one session each, strictly one after
    another.** Takes the oldest open `loop:proposal` + `approved` issue whose approval really came from you
    (`check-approval.ps1`, against the issue's event history). Posts a plan, builds on `loop/<issue>-<slug>`
    in its own clone, runs `test-gate.ps1`, opens a PR, waits for CI with ONE `wait-ci.ps1` call (one
@@ -56,20 +56,35 @@ automatically: remove `loop:failed` to rebuild it. Auto-approved slices take no 
 a "## Spec progress" checklist comment on the spec and closes it when every slice is deployed or closed.
 
 **Models and caps** ([`sessions.json`](sessions.json), yours; kept out of `loop.config.json` so changing a
-model never makes the elevated copy stale). Build sessions run on `claude-opus-5-5`, or `claude-sonnet-5-5`
-when the issue carries `size:small` or `test-only` (the loop adds one when it opens a small or test-only
-proposal; change it before approving to choose). Proposal sessions run on `claude-sonnet-5-5`. Turn caps
-150 per build and 80 for proposals; time limits 150 / 45 minutes, each cut to what is left of the run's 240.
+model never makes the elevated copy stale). Build sessions run on `claude-sonnet-5-5` (your decision of
+2026-11-23) and on `claude-opus-5-5` (`build.opusModel`) only when: the issue carries `model:opus` (add it before
+approving to choose Opus), the change deploys the API server (`area:backend` / `area:both`, or "What deploys" names
+the API), or it is the one automatic retry of a Sonnet build that failed on the change (class `tests`, `other` or
+`max-turns`; the failure marker records the model). `size:small` / `test-only` stay on Sonnet. The log says which
+and why (`Phase A: #n model ... (...)`, `gate-rules.ps1 Get-BuildModelChoice`). Proposal sessions run on
+`claude-sonnet-5-5`. Turn caps 150 per build and 80 for proposals; time limits 150 / 45 minutes, each cut to what is
+left of the run's 360. Every build after the first needs 100 minutes left (`-NextBuildMinMinutes`): four builds
+of up to ~85 min fit. The run budget is cut to end 30 minutes inside the task's ExecutionTimeLimit (7 h from
+install-task.ps1; the log's `time: run budget ...` line).
 `-Model` / `-MaxTurns` on run-loop.ps1 override every session for one run.
 
 **Plan budget.** Before every session the runner (never claude) reads the ops hub's verdict in
 `D:\hub\state\plan-budget.json` (written every 15 min from the plan's 5-hour and weekly use, which the loop
-shares with your interactive sessions): `normal` = as always; `no-opus` = no session on an Opus model (an Opus
+shares with your interactive sessions): `normal` = as always; `no-opus` = no session on an Opus model (only the Opus builds above: an Opus
 build is deferred, still approved and untouched, to the first run whose verdict allows it; Sonnet builds and
 proposal sessions still run); `hold` = no session at all (the run ends `LOOP-RESULT: NOTHING-TO-DO plan budget
 hold`, $0). It fails open: a missing, unreadable, unknown or stale (older than its `staleAfterMinutes`, default
 30) file counts as `normal` and is logged as a WARN. `run-loop.ps1 -IgnoreBudget` skips it for a supervised
 run. The run log has a `budget:` line per check, and the summary lists deferred issues.
+
+**Queue drain (the approval watcher).** At the end of every FULL run the runner writes
+`<LOOP_HOME>\state\drain.json` (what `check-approval.ps1 -List` still calls buildable, which of those need Opus,
+the last runs' queue head and progress; log line `drain state: ...`). The watcher reads it as data and starts the
+task again when approved work is left, no run holds the lock and the last run ended 15+ minutes ago; never under
+`hold`, nor `no-opus` when every buildable issue needs Opus, nor after an uncertain deploy; after a rollback, or
+when the last 2 runs had the same queue head and deployed nothing, it backs off 2 hours. At most one drain run per
+finished run. Rule: `Get-DrainDecision` in `gate-rules.ps1` (literal copy in the watcher, checked by
+`test-queue-rules.ps1`).
 
 **No-op runs cost nothing.** Before it starts claude, `run-loop.ps1` asks `check-approval.ps1 -List` for
 the queue; with nothing buildable (FULL mode) and no free slot it logs `precheck: launch=False (...)`,
@@ -151,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File D:\projects\solid-website\innovation\ru
 | ------------------------------------- | -------------------------------- | ----------------------------- | ------------------------------------------------------------------- |
 | `InnovationLoop`         | SERVER-PC\VeBui, reduced token  | daily 13:17 (disabled at install) | `run-loop.ps1` from this checkout                        |
 | `innovation-loop-api`  | SERVER-PC\VeBui, **highest**    | none (started on demand)      | `C:\ProgramData\innovation-loop-portfolio\bin\elevated-task.ps1`  |
-| `innovation-loop-watch` (shared)      | SERVER-PC\VeBui, S4U            | every 10 min                  | starts this loop's task when you approve a proposal, or to refill proposals (fewer than 5 awaiting review; at most hourly) |
+| `innovation-loop-watch` (shared)      | SERVER-PC\VeBui, S4U            | every 10 min                  | starts this loop's task when you approve a proposal, to refill proposals (fewer than 5 awaiting review; at most hourly), or to drain approved work left after a run (state\drain.json) |
 
 The loop task reads the scripts, `LOOP.md` and `FOCUS.md` from **this checkout**: keep it on `main` and
 `git pull` to update the loop. The elevated task runs an **admin-only copy** of `lib.ps1`,

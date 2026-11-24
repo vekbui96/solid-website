@@ -181,7 +181,8 @@ if (-not $ElevatedOnly) {
     $argument = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$RunLoop`" $ExtraArgs".Trim()
     $action = New-ScheduledTaskAction -Execute "$PSHOME\powershell.exe" -Argument $argument -WorkingDirectory $Here
     $trigger = New-ScheduledTaskTrigger -Daily -At $At
-    $settings = New-ScheduledTaskSettingsSet @settingsCommon -ExecutionTimeLimit (New-TimeSpan -Hours 5) -StartWhenAvailable -RunOnlyIfNetworkAvailable
+    # 7 h: run-loop.ps1's 360-min run budget (up to 4 builds) plus reporting; run-loop cuts its budget to end 30 min inside this
+    $settings = New-ScheduledTaskSettingsSet @settingsCommon -ExecutionTimeLimit (New-TimeSpan -Hours 7) -StartWhenAvailable -RunOnlyIfNetworkAvailable
     $principal = New-ScheduledTaskPrincipal -UserId $User -LogonType $LogonType -RunLevel Limited
     $task = New-ScheduledTask -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
         -Description "$Project innovation loop (claude -p, LOOP.md). run-loop.ps1 drops its own rights (RunLevel alone does not). See $Here\README.md"

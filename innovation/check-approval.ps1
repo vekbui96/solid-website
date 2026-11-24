@@ -16,8 +16,9 @@
      normal proposals (built on the spec's approval, or each on its own `approved`)
    - it does not carry loop:failed, OR this is its ONE automatic retry: no loop:retried label, exactly one
      failure marker (`<!-- innovation-loop:failure class=<c> outcome=<o> -->` in a loop comment by the
-     owner) since the approval, its class is outside the change (gate-rules.ps1 $RetryableFailures) and its
-     outcome is not rolled-back. Then `retry` is true and the session swaps loop:failed for loop:retried
+     owner) since the approval, its class is outside the change (gate-rules.ps1 $RetryableFailures), OR the marker
+     names a NON-Opus model (model=...) and the class is tests / other / max-turns (gate-rules.ps1
+     $OpusRetryClasses: the retry then runs on Opus, `opusRetry`), and its outcome is not rolled-back. Then `retry` is true and the session swaps loop:failed for loop:retried
      when it takes the issue (LOOP.md section 3 step 4). Otherwise the issue is "failed, waiting on the owner".
    - it was opened by the owner (the loop opens proposals as the owner's gh login)
    - per the issue EVENTS API, the most recent `labeled approved` event was performed by the owner, and no
@@ -34,7 +35,9 @@
   With -List it checks every open approved proposal, and every open slice of an approved spec, and prints
   the queue: `viaSpec` (the auto-approved slices: issue, spec, specApprovedAt, noticed = the runner's one
   "Auto-approved via spec" comment is there), `approvals` (issue -> `label` | `via-spec #<spec>`), `buildable` (oldest first),
-  `retry` (the buildable ones that are an automatic retry), `labels` (issue -> labels, for the runner's
+  `retry` (the buildable ones that are an automatic retry; `opusRetry` those whose retry runs on Opus because a
+  non-Opus build failed on the change), `serverDeploy` (buildable issues that deploy the API, by area label or
+  "What deploys": built on Opus), `labels` (issue -> labels, for the runner's
   model choice), `slots` (proposal slots: open loop:proposal issues, specs included, that are neither
   approved nor loop:failed hold one; cap caps.maxOpen; `free`, `newThisRun`, `specsAwaiting`, `mayOpenSpec`), `specs`
   (approved open specs with their slices), `slicesToOpen` (the slices Phase B opens before any new idea,
@@ -98,12 +101,14 @@ function Test-ViaSpec {
 function Test-Issue {
     param([int]$Number, [switch]$AsSpec)
     $res = [ordered]@{ issue = $Number; buildable = $false; reasons = @(); approvedBy = $null; approvedAt = $null; areas = @(); adjustments = @()
-        failed = $false; retry = $false; failure = ''; retryReason = ''; waitingReason = ''; labels = @(); spec = $false
+        failed = $false; retry = $false; opusRetry = $false; serverDeploy = $false; failure = ''; retryReason = ''; waitingReason = ''; labels = @(); spec = $false
         approval = 'label'; viaSpec = 0; viaSpecNoticed = $false; viaSpecReasons = @(); waitingOnSlice = $null }
     $i = Get-GhJson @('api', "repos/$Repo/issues/$Number")
     $labels = @($i.labels | ForEach-Object { $_.name })
     $res.labels = $labels
     $res.spec = ($labels -contains $script:SpecLabel)
+    # the change deploys the API server, known up front (its build then runs on Opus: gate-rules.ps1 Get-BuildModelChoice)
+    $res.serverDeploy = (Test-ProposalNeedsServer -Body "$($i.body)" -Labels $labels)
     $res.areas = @($labels | Where-Object { $_ -like 'area:*' })
 
     $events = @()
@@ -178,7 +183,7 @@ function Test-Issue {
         if ($rd.Failed -and $via -and $labels -notcontains 'approved') {
             $res.waitingReason = "auto-approved slice of spec #$($via.Spec) failed$(if ($rd.Class) { " ($($rd.Class))" }); no automatic retry: remove loop:failed to rebuild it, or close it"
         } elseif ($rd.Failed) {
-            if ($rd.Retry) { $res.retry = $true; $res.retryReason = $rd.Reason }
+            if ($rd.Retry) { $res.retry = $true; $res.opusRetry = [bool]$rd.Opus; $res.retryReason = $rd.Reason }
             else { $res.reasons += "has label loop:failed ($($rd.Reason))"; $res.waitingReason = $rd.Reason }
         }
         # otherwise buildable, but a slice whose earlier slice of the same spec is open and Manual waits for it
@@ -257,6 +262,8 @@ function Get-Queue {
     return [ordered]@{
         buildable    = @($ok | ForEach-Object { $_.issue })
         retry        = @($ok | Where-Object { $_.retry } | ForEach-Object { $_.issue })
+        opusRetry    = @($ok | Where-Object { $_.retry -and $_.opusRetry } | ForEach-Object { $_.issue })
+        serverDeploy = @($ok | Where-Object { $_.serverDeploy } | ForEach-Object { $_.issue })
         labels       = $labels
         approvals    = $approvals
         viaSpec      = @($via | ForEach-Object { [ordered]@{ issue = $_.issue; spec = $_.viaSpec; specApprovedAt = "$($_.approvedAt)"; buildable = [bool]$_.buildable; noticed = [bool]$_.viaSpecNoticed } })

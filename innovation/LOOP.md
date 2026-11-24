@@ -136,7 +136,8 @@ handle them, and you never touch issues without `loop:proposal`.
 Flow: `loop:proposal` -> (owner) `approved` -> `loop:in-progress` -> `loop:deployed` + closed,
 or -> `loop:failed` (in-progress removed, issue left open for the owner). A failure outside the change (see
 "Failure classes" in section 3) is retried ONCE by a later run: `loop:failed` -> `loop:retried` +
-`loop:in-progress` -> `loop:deployed`, or `loop:failed` again (then it waits for the owner).
+`loop:in-progress` -> `loop:deployed`, or `loop:failed` again (then it waits for the owner). So is a build on a
+non-Opus model (Sonnet) that failed on the change (`tests`, `other`, `max-turns`): its one retry runs on Opus.
 An issue the owner closes without `loop:deployed` is rejected: never re-propose it or a close variant.
 
 **Specs.** `loop:proposal` + `loop:spec` -> (owner) `approved` -> the next proposal sessions open its slices,
@@ -211,8 +212,9 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
    the owner's approval of its spec: it has no `approved` label and needs none (`check-approval.ps1 -Issue <n>`
    reports `approval: via-spec`); build it exactly like any approved issue and say `approval: via-spec #<spec>`
    in your summary. If the header says `retry: yes`, this is the ONE automatic retry of a build that
-   failed for a reason outside the change (`check-approval.ps1 -Issue <n>` shows its `retryReason`); build
-   it like any other, with the differences in steps 4 and 6. Print `LOOP-ISSUE-START <n>` as plain text; at
+   failed for a reason outside the change, or of a Sonnet build that failed on the change (then this session runs
+   on Opus; `check-approval.ps1 -Issue <n>` shows its `retryReason`): read the last attempt's failure comment and
+   PR first, and build it like any other, with the differences in steps 4 and 6. Print `LOOP-ISSUE-START <n>` as plain text; at
    the end print `LOOP-ISSUE-END <n> <deployed|failed|rolled-back|skipped>`.
 2. **Re-check it:** `<SCRIPTS>\check-approval.ps1 -Issue <n>` must exit 0. Note its `adjustments` and `areas`.
    If it does not exit 0, end the session (`LOOP-ISSUE-END <n> skipped`, `LOOP-RESULT: NOTHING-TO-DO` with
@@ -329,9 +331,10 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
 
     **Failure classes.** Every comment that adds `loop:failed` (the failure comment, the step 3 refusal,
     the step 9 out-of-time comment) has, as its SECOND line right after `<!-- innovation-loop -->`:
-    `<!-- innovation-loop:failure class=<class> outcome=<failed|rolled-back|skipped> -->`
+    `<!-- innovation-loop:failure class=<class> outcome=<failed|rolled-back|skipped> model=<MODEL> -->`
     (outcome `rolled-back` when anything went live or main was reverted, `skipped` for a step 3 refusal,
-    else `failed`). The scripts read it to decide whether the next run may retry the issue once; pick the
+    else `failed`; MODEL = the MODEL line of your header, verbatim: a Sonnet build that failed on the change gets
+    its one retry on Opus only when the marker names the model). The scripts read it to decide whether the next run may retry the issue once; pick the
     class from what the scripts told you, not from a guess:
     - outside the change (retried once automatically, unless the outcome is `rolled-back`): `ci-infra`
       (CI failed for infrastructure reasons: a runner/network/hosting error, a required check cancelled or
@@ -339,7 +342,8 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
       (`WAIT-CI TIMEOUT`, `CI-TIMEOUT`), `gap-refused` (`MERGE-PR REFUSED` for protected paths in commits
       already on main, not the PR's own diff), `deploy-unavailable` (the elevated task, its lock or its
       selftest unavailable, or `deploy.ps1` exit 1 before anything changed), `out-of-time` (step 9).
-    - caused by the change (never retried automatically): `tests` (gates or CI still failing after the fix
+    - caused by the change (never retried automatically, except once on Opus after a non-Opus build: `tests`,
+      `other`): `tests` (gates or CI still failing after the fix
       rounds), `guard-refused` (`MERGE-PR REFUSED` on the PR's own diff, or a guard block on the change),
       `scope` (step 3), `deploy-failed` (deploy or verify failed and was rolled back), `other` (anything
       else; when unsure, `other`).
