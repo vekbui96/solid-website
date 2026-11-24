@@ -17,6 +17,13 @@ const catLabel: Record<string, string> = {
     ai: "AI",
 };
 
+// number of projects a filter chip holds ("all" = every project)
+export const filterCount = (all: { categories: readonly string[] }[], id: string) =>
+    id === "all" ? all.length : all.filter((p) => p.categories.includes(id)).length;
+
+export const statusText = (shown: number, total: number) =>
+    `Showing ${shown} of ${total} project${total === 1 ? "" : "s"}`;
+
 export const ProjectShowcase = () => {
     const ctx = useGlobalContext();
     const [filter, setFilter] = createSignal<string>("all");
@@ -70,10 +77,19 @@ export const ProjectShowcase = () => {
                             onClick={() => setFilter(f.id)}
                         >
                             {f.label}
+                            <Show when={projects().length}>
+                                <span class="pj-filter-count"> {filterCount(projects(), f.id)}</span>
+                            </Show>
                         </button>
                     )}
                 </For>
             </div>
+
+            <Show when={projects().length}>
+                <p class="pj-status" role="status" aria-live="polite">
+                    {statusText(visible().length, projects().length)}
+                </p>
+            </Show>
 
             <Show when={!projects().length}>
                 <p class="pj-loading" role="status" style={{ "min-height": "320px", opacity: "0.7" }}>
