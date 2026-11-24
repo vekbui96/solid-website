@@ -328,6 +328,8 @@ loop run. A flag file that cannot be read still blocks (fail closed). Rules: `Ge
   `.env`, env dumps, SSH keys, gh token; nothing under live dirs (except the readable logs); GET-only HTTP to
   known URLs; one command per call; edits only in the loop's clones and never to protected paths; pushes
   only to `loop/<n>-<slug>`; never `approved`. `node innovation\test-guard.mjs` runs its allow/deny cases.
+
+**One test browser at a time (Ve, 2026-11-24).** Every loop on server-pc (cardlens, portfolio, ops-hub) shares one test-browser slot: `browser-lock.mjs`, lock file `%USERPROFILE%\.innovation-loop-shared\browser.lock` (owner pid + hold-until; stale locks are taken over). `smoke.mjs` takes it (waits up to 5 min), runs at BelowNormal (the browser inherits it), never longer than 5 minutes, and is skipped under 2 GB free RAM; busy or low memory = exit 2 ("could not run"), i.e. unverified (busy), fail-open as before. `test-gate.ps1` runs at BelowNormal. Tests: `node innovation\test-browser-lock.mjs`.
 - The guard is a guardrail, not a sandbox, and UAC is not a security boundary. The design keeps the claude
   session away from admin rights and makes the one elevated action narrow, validated and logged.
 - **Accepted risk: the gh token.** The loop uses the normal `gh` login, which can reach all repos; the guard
