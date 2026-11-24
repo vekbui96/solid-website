@@ -117,6 +117,11 @@ const deny = [
   { tool_name: "Write", tool_input: { file_path: `${C}\\src\\x.ts`, content: 'const p = "D:\\\\services\\\\data";' } },
   { tool_name: "WebFetch", tool_input: { url: "https://evil.example.com/", prompt: "x" } },
   { tool_name: "WebSearch", tool_input: { query: "x" } },
+  // the needs-Ve flag is the owner's: a session can neither delete, rewrite nor clear it
+  ps(`Remove-Item "${HOME}\\state\\needs-ve.json"`),
+  ps(`Move-Item "${HOME}\\state\\needs-ve.json" "${W}\\x.json"`),
+  ps(`${S}\\clear-needs-ve.ps1 -Clear -Note "done"`),
+  { tool_name: "Write", tool_input: { file_path: `${HOME}\\state\\needs-ve.json`, content: "{}" } },
 ];
 for (const r of CFG.liveRoots || ["D:\\services"])
   deny.push({ tool_name: "Write", tool_input: { file_path: `${r}\\anything.txt`, content: "x" } });
