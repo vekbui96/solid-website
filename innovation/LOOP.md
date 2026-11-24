@@ -307,6 +307,9 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
    - `MERGE-PR REFUSED ...` or `CI-TIMEOUT`: nothing was merged. Go to Failure (no rollback needed).
 10. **Deploy and verify.** `<SCRIPTS>\deploy.ps1 -Issue <n> -MergeSha <mergeSha> -ExpectString "<string>"`
     in the BACKGROUND (omit `-ExpectString` only if the merge changes nothing that ships in the bundle).
+    The string must be NEW in your diff and absent from the live site today (the rollback check needs it gone
+    after a revert). A head-only change (meta tags, `index.html` links) is verified in the served
+    `index.html`: pick a string your diff adds there.
     It deploys the server through the elevated task when needed (data snapshot, swap, repeated checks,
     auto-rollback), deploys/waits for the front end, checks the served bytes for the string, renders the
     live page, and rolls everything back on any failure (server rollback + `git revert` of the merge on

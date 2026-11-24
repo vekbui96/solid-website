@@ -92,8 +92,21 @@ if ($siteUrl) {
     $fakeSite['index-HOME0011.js'] = @{ Status = 200; Body = 'import"./Gone-GGGGGG11.js";import{P}from"./MoversPanel-MMMMMM11.js";' }
     Check (-not (Test-FrontendLive -ExpectString 'Biggest movers' -TimeoutSec 1).Ok) 'Test-FrontendLive fails when a nested chunk is unreachable'
     $fakeSite['index-HOME0011.js'] = @{ Status = 200; Body = 'import"./Screen-AAAAAA11.js";import{P}from"./MoversPanel-MMMMMM11.js";' }
-    $sig = (Get-AssetSet $script:indexHtml) -join ','
+    $sig = Get-PageSignature $script:indexHtml
     Check (-not (Test-FrontendLive -ExpectString 'Biggest movers' -NotSignature $sig -TimeoutSec 1).Ok) 'Test-FrontendLive refuses the previous build (NotSignature unchanged)'
+    # head-only change (#22, #39): same hashed bundles, new index.html -> a new build, string found in index.html
+    $oldHtml = $script:indexHtml
+    $oldSig = Get-PageSignature $oldHtml
+    Check ((Get-PageSignature ($oldHtml -replace "`n", "`r`n")) -eq $oldSig) 'page signature ignores line endings'
+    $script:indexHtml = $oldHtml.Replace('</head>', '<meta property="og:title" content="Head only XYZ"></head>')
+    Check ((Get-PageSignature $script:indexHtml) -ne $oldSig) 'an index.html-only change gives a new page signature'
+    $script:logLines.Clear()
+    $v = Test-FrontendLive -ExpectString 'Head only XYZ' -NotSignature $oldSig -TimeoutSec 5
+    Check ([bool]$v.Ok) "a head-only change verifies (string in index.html, same assets) ($($script:logLines -join ' | '))"
+    Check (-not (Test-FrontendLive -AbsentString 'Head only XYZ' -TimeoutSec 1).Ok) 'rollback check fails while index.html still has the string'
+    $script:indexHtml = $oldHtml
+    Check ([bool](Test-FrontendLive -AbsentString 'Head only XYZ' -TimeoutSec 5).Ok) 'rollback check passes once index.html no longer has the string'
+    Check (-not (Test-FrontendLive -ExpectString 'Head only XYZ' -NotSignature $oldSig -TimeoutSec 1).Ok) 'unchanged index.html is still refused as the previous build'
     function Test-FrontendExtraLive { return 'sub-site status=404' }
     Check (-not (Test-FrontendLive -ExpectString 'Biggest movers' -TimeoutSec 1).Ok) 'a failing Test-FrontendExtraLive fails the live check'
 }
