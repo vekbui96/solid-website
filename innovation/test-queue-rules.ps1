@@ -673,6 +673,28 @@ if (Test-Path -LiteralPath $watchRef) {
     Check ([IO.File]::ReadAllText($watchRef) -match ('NeedsVe = ''' + [regex]::Escape((Join-Path "C:\Users\Ve Bui\.innovation-loop-$(([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'loop.config.json')) | ConvertFrom-Json).project)" 'state\needs-ve.json')) + '''')) 'the watcher''s entry for this loop names the needs-Ve flag run-loop.ps1 writes'
 }
 
+# Script-scope name clashes (2026-11-24): PowerShell variable names are case-insensitive, so a plain `$marker = ...`
+# at script level (outside any function) IS `$script:Marker`. run-loop.ps1 did exactly that with a build outcome,
+# and every runner comment after a build began with "deployed"/"failed" instead of the loop marker (hub #48;
+# here the spec-progress comments were re-posted as duplicates that read as Ve's adjustments). A script-level assignment whose name differs only in case from a `$script:` name is that bug. Script blocks
+# count as script level (run-loop.ps1 dot-sources $phaseA); only function bodies have a scope of their own.
+foreach ($sf in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter *.ps1 | Where-Object { $_.Name -notlike 'test-*' })) {
+    $ast = [Management.Automation.Language.Parser]::ParseFile($sf.FullName, [ref]$null, [ref]$null)
+    $scriptNames = @{}
+    foreach ($v in $ast.FindAll({ param($a) $a -is [Management.Automation.Language.VariableExpressionAst] -and "$($a.VariablePath.UserPath)" -like 'script:*' }, $true)) {
+        $nm = "$($v.VariablePath.UserPath)".Substring(7); if (-not $scriptNames.ContainsKey($nm.ToLowerInvariant())) { $scriptNames[$nm.ToLowerInvariant()] = @{} }; $scriptNames[$nm.ToLowerInvariant()][$nm] = 1
+    }
+    $clash = @()
+    foreach ($as in $ast.FindAll({ param($a) $a -is [Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+        $inFn = $false; $p = $as.Parent; while ($p) { if ($p -is [Management.Automation.Language.FunctionDefinitionAst]) { $inFn = $true; break }; $p = $p.Parent }
+        if ($inFn -or -not ($as.Left -is [Management.Automation.Language.VariableExpressionAst])) { continue }
+        $nm = "$($as.Left.VariablePath.UserPath)"; if ($nm -match ':') { continue }
+        $k = $nm.ToLowerInvariant()
+        if ($scriptNames.ContainsKey($k) -and -not (@($scriptNames[$k].Keys) -ccontains $nm)) { $clash += "`$$nm (line $($as.Extent.StartLineNumber)) vs `$script:$(@($scriptNames[$k].Keys)[0])" }
+    }
+    Check ($clash.Count -eq 0) "$($sf.Name): no script-level variable that overwrites a `$script: variable of another case ($($clash -join '; '))"
+}
+
 if ($script:fail -gt 0) { Write-Host "TEST-QUEUE-RULES FAIL ($script:fail failed, $script:pass passed)"; exit 1 }
 Write-Host "TEST-QUEUE-RULES PASS ($script:pass checks)"
 exit 0
