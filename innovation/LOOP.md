@@ -270,6 +270,15 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
 7. **Test** (all must pass; on failure fix within reason, else go to Failure):
    `<SCRIPTS>\test-gate.ps1 -Issue <n> -Step format` (if the project has a formatter), then
    `<SCRIPTS>\test-gate.ps1 -Issue <n> -Step all -ExpectString "<string>"`. Last line `TEST-GATE PASS`.
+   **No visible string?** A change that touches front-end paths but cannot change what the site serves
+   (a new module nothing imports yet; a `package.json` change limited to `"scripts"`, e.g. a new check
+   script) has no string to find. Then pass `-NoVisibleString "<why, one line>"` INSTEAD of `-ExpectString`
+   (never both). It is accepted only when git proves nothing served can change: every changed front-end
+   file is NEW under `src/` or is `package.json` with only `"scripts"` changed; any modified, deleted or
+   renamed `src/` file, anything in `public/`, `index.html`, `vite.config.ts` or `yarn.lock` refuses it,
+   and so does a shipped `import.meta.glob`. The gate then also requires the built `dist\index.html` to
+   carry the live site's signature (same content-hashed assets, same bytes). If it refuses, the change
+   ships new bytes: pick a string. Never use it to dodge a string that exists.
    There are no e2e or visual baselines. `-Step all` runs install, typecheck (tsc errors must not exceed
    origin/main's count), build (`yarn build:all`) and smoke (local preview renders) for `solid-website`, and
    `verify` (`mvnw -B verify`) for `solid-website-api` (pass `-Repo solid-website-api`). There is no CI on
@@ -306,7 +315,10 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
    - `MERGE-PR CI-FAILED ...`: the head changed or CI was re-run after wait-ci; go back to wait-ci.ps1.
    - `MERGE-PR REFUSED ...` or `CI-TIMEOUT`: nothing was merged. Go to Failure (no rollback needed).
 10. **Deploy and verify.** `<SCRIPTS>\deploy.ps1 -Issue <n> -MergeSha <mergeSha> -ExpectString "<string>"`
-    in the BACKGROUND (omit `-ExpectString` only if the merge changes nothing that ships in the bundle).
+    in the BACKGROUND (omit `-ExpectString` only if the merge changes nothing that ships in the bundle; for a
+    change the test gate accepted with `-NoVisibleString`, pass the same `-NoVisibleString "<why>"` here
+    instead: deploy.ps1 re-applies the git rule at the merge and then requires the served build to be
+    unchanged, every chunk to load, the extra URLs to answer and the page to render).
     The string must be NEW in your diff and absent from the live site today (the rollback check needs it gone
     after a revert). A head-only change (meta tags, `index.html` links) is verified in the served
     `index.html`: pick a string your diff adds there.

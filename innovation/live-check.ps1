@@ -76,3 +76,76 @@ function Find-InChunkGraph {
     $res.Capped = $capped
     return [pscustomobject]$res
 }
+
+# ==================================================================================================
+# -NoVisibleString (deploy.ps1 / test-gate.ps1): a front-end change that ships no new bytes
+# ==================================================================================================
+# Some approved changes touch front-end paths but cannot change what the site serves: a new module nothing imports
+# yet (Vite only bundles what is imported), or a package.json change limited to its "scripts" (a new check script,
+# e.g. #36's bundle budget). No -ExpectString can ever be found for them, so they were rolled back after a clean merge.
+# -NoVisibleString "<reason>" replaces -ExpectString ONLY when git proves the served output cannot change:
+#   - every changed front-end file (hooks.ps1 Test-IsFrontendFile) is either
+#       * NEW (status A) under src/ (not public/: Vite copies public/ into dist verbatim), or
+#       * package.json with only its "scripts" changed (dependencies, devDependencies and every other key identical);
+#   - anything else that ships refuses it: a modified, deleted, renamed or type-changed src/ file, anything in public/,
+#     index.html, vite.config.ts, yarn.lock;
+#   - no shipped (non-test) src/ file uses import.meta.glob (a glob could bundle a new file without an import).
+# The build-output check then proves it (test-gate.ps1: the built dist\index.html, whose asset names are content
+# hashes, has the live site's signature; deploy.ps1: the served signature is unchanged after the deploy), together
+# with the usual chunk walk, extra URLs and the headless render.
+
+# Is the package.json change limited to "scripts"? Both texts parsed as JSON; any parse failure = no.
+function Test-PackageJsonScriptsOnly {
+    param([string]$Before, [string]$After)
+    try { $b = "$Before".TrimStart([char]0xFEFF) | ConvertFrom-Json; $a = "$After".TrimStart([char]0xFEFF) | ConvertFrom-Json } catch { return $false }
+    if ($null -eq $b -or $null -eq $a) { return $false }
+    $strip = { param($o) $h = [ordered]@{}; foreach ($p in $o.PSObject.Properties) { if ($p.Name -ne 'scripts') { $h[$p.Name] = $p.Value } }; ($h | ConvertTo-Json -Depth 20 -Compress) }
+    return ((& $strip $b) -eq (& $strip $a))
+}
+
+# The rule, pure. $Changes: @{ Status = 'A'|'M'|'D'|'R100'|'T'|...; Path = <new path>; OldPath = <for renames> } from
+# git diff --name-status -M; $IsFront: scriptblock(path) -> bool (Test-IsFrontendFile); $GlobFiles: shipped src files
+# that use import.meta.glob at the target; $PackageScriptsOnly: Test-PackageJsonScriptsOnly for package.json.
+# Allowed + Reason + Added (new modules) + Front (front-end files seen).
+function Get-NoVisibleStringDecision {
+    param([object[]]$Changes = @(), [scriptblock]$IsFront, [string[]]$GlobFiles = @(), [bool]$PackageScriptsOnly = $false)
+    $mk = { param([bool]$Ok, [string]$Why, [string[]]$Added = @(), [string[]]$Front = @()) [pscustomobject]@{ Allowed = $Ok; Reason = $Why; Added = @($Added); Front = @($Front) } }
+    $added = @(); $front = @(); $bad = @()
+    foreach ($c in @($Changes | Where-Object { $_ })) {
+        $st = "$($c.Status)".Trim().ToUpperInvariant(); $p = "$($c.Path)".Replace('\', '/'); $old = "$($c.OldPath)".Replace('\', '/')
+        $isF = (& $IsFront $p) -or ($old -and (& $IsFront $old))
+        if (-not $isF) { continue }
+        $front += $p
+        if ($st -eq 'A' -and $p -match '^src/') { $added += $p; continue }
+        if ($st -eq 'M' -and $p -eq 'package.json' -and $PackageScriptsOnly) { continue }
+        $why = switch -regex ($st) { '^A' { 'added outside src/ (ships as is)' } '^M' { if ($p -eq 'package.json') { 'package.json changes more than "scripts"' } else { 'modified' } } '^D' { 'deleted' } '^R' { "renamed from $old" } default { "status $st" } }
+        $bad += "$p ($why)"
+    }
+    if ($bad.Count -gt 0) { return (& $mk $false "the change can alter what the site serves: $($bad -join ', ')" $added $front) }
+    $globs = @($GlobFiles | Where-Object { $_ -and "$_" -notmatch '\.(test|spec)\.[jt]sx?$|/__tests__/|^e2e/|^test/' })
+    if ($added.Count -gt 0 -and $globs.Count -gt 0) { return (& $mk $false "shipped files use import.meta.glob, which could bundle a new file without an import: $($globs -join ', ')" $added $front) }
+    if ($front.Count -eq 0) { return (& $mk $true 'no front-end file changed' $added $front) }
+    return (& $mk $true "nothing served can change: new unreferenced module(s) [$($added -join ', ')]$(if ($front -contains 'package.json') { ', package.json scripts only' })" $added $front)
+}
+
+# The rule over git (From..To in a clone). Needs lib.ps1 and hooks.ps1 (Test-IsFrontendFile). Never throws: a git
+# failure refuses (fail closed).
+function Get-NoVisibleStringVerdict {
+    param([string]$Repo, [string]$From, [string]$To)
+    try {
+        $r = Invoke-Git -Repo $Repo -Arguments @('diff', '--name-status', '-M', "$From..$To") -Quiet
+        $changes = @($r.Output | Where-Object { $_ -and $_.Trim() } | ForEach-Object {
+                $f = "$_" -split "`t"
+                if ($f.Count -ge 3) { @{ Status = $f[0]; OldPath = $f[1]; Path = $f[2] } } else { @{ Status = $f[0]; Path = $f[1]; OldPath = '' } } })
+        $pkg = $false
+        if (@($changes | Where-Object { $_.Path -eq 'package.json' -and "$($_.Status)" -eq 'M' }).Count -gt 0) {
+            $b = (Invoke-Git -Repo $Repo -Arguments @('show', "${From}:package.json") -Quiet).Output -join "`n"
+            $a = (Invoke-Git -Repo $Repo -Arguments @('show', "${To}:package.json") -Quiet).Output -join "`n"
+            $pkg = Test-PackageJsonScriptsOnly -Before $b -After $a
+        }
+        $g = Invoke-Git -Repo $Repo -Arguments @('grep', '-l', 'import.meta.glob', $To, '--', 'src') -AllowFail -Quiet
+        $globs = @(); if ($g.Code -eq 0) { $globs = @($g.Output | Where-Object { $_ } | ForEach-Object { ("$_" -replace "^$([regex]::Escape($To)):", '').Trim() }) }
+        elseif ($g.Code -ne 1) { return [pscustomobject]@{ Allowed = $false; Reason = "git grep failed (exit $($g.Code))"; Added = @(); Front = @() } }
+        return (Get-NoVisibleStringDecision -Changes $changes -IsFront { param($p) Test-IsFrontendFile $p } -GlobFiles $globs -PackageScriptsOnly $pkg)
+    } catch { return [pscustomobject]@{ Allowed = $false; Reason = "could not read the change from git: $_"; Added = @(); Front = @() } }
+}

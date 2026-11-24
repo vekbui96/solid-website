@@ -121,6 +121,55 @@ foreach ($f in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter *.ps1 | Where-
     Check (-not ([IO.File]::ReadAllText($f.FullName)).Contains('live-check.ps1')) "elevated file $($f.Name) does not depend on live-check.ps1"
 }
 
+# ---- -NoVisibleString: a front-end change that ships no new bytes ------------------------------------------------
+$isF = { param($p) Test-IsFrontendFile $p }
+function Ch { param([string]$S, [string]$P, [string]$O = '') @{ Status = $S; Path = $P; OldPath = $O } }
+$pkgA = '{"name":"x","scripts":{"build":"vite build"},"devDependencies":{"vite":"6.0.0"}}'
+$pkgScripts = '{"name":"x","scripts":{"build":"vite build","size":"node scripts/check-bundle-size.mjs"},"devDependencies":{"vite":"6.0.0"}}'
+$pkgDeps = '{"name":"x","scripts":{"build":"vite build"},"devDependencies":{"vite":"6.1.0"}}'
+Check (Test-PackageJsonScriptsOnly -Before $pkgA -After $pkgScripts) 'package.json: only "scripts" changed -> scripts only'
+Check (-not (Test-PackageJsonScriptsOnly -Before $pkgA -After $pkgDeps)) 'package.json: a devDependency changed -> not scripts only'
+Check (-not (Test-PackageJsonScriptsOnly -Before $pkgA -After '{"name":"x","scripts":{},"devDependencies":{"vite":"6.0.0"},"type":"module"}')) 'package.json: a new top-level key -> not scripts only'
+Check (-not (Test-PackageJsonScriptsOnly -Before $pkgA -After 'not json')) 'package.json: unparsable -> not scripts only (fail closed)'
+# #36 (bundle budget, merge e68cffb): package.json scripts + files outside the bundle -> allowed
+$d = Get-NoVisibleStringDecision -Changes @((Ch 'A' 'bundle-budget.json'), (Ch 'M' 'package.json'), (Ch 'A' 'scripts/check-bundle-size.mjs')) -IsFront $isF -PackageScriptsOnly $true
+Check ($d.Allowed -and @($d.Front) -contains 'package.json') "#36's change (package.json scripts only + a script outside the bundle) -> allowed ($($d.Reason))"
+$d = Get-NoVisibleStringDecision -Changes @((Ch 'A' 'src/lib/wantList.ts'), (Ch 'A' 'src/lib/wantList.test.ts')) -IsFront $isF
+Check ($d.Allowed -and (@($d.Added) -join ',') -eq 'src/lib/wantList.ts') "a new unreferenced module (+ its test) -> allowed ($($d.Reason))"
+$d = Get-NoVisibleStringDecision -Changes @((Ch 'A' 'src/lib/wantList.ts'), (Ch 'M' 'src/pages/Home/Home.tsx')) -IsFront $isF
+Check (-not $d.Allowed -and $d.Reason -match 'Home\.tsx \(modified\)') "a modified shipped file -> refused ($($d.Reason))"
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'M' 'package.json')) -IsFront $isF -PackageScriptsOnly $false).Allowed) 'package.json beyond scripts -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'M' 'yarn.lock')) -IsFront $isF).Allowed) 'yarn.lock -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'M' 'index.html')) -IsFront $isF).Allowed) 'index.html -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'M' 'vite.config.ts')) -IsFront $isF).Allowed) 'vite.config.ts -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'A' 'public/robots.txt')) -IsFront $isF).Allowed) 'a new file in public/ (copied into dist as is) -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'D' 'src/utils/checkExternalLink.js')) -IsFront $isF).Allowed) 'a deleted src file -> refused'
+Check (-not (Get-NoVisibleStringDecision -Changes @((Ch 'R100' 'src/lib/b.ts' 'src/lib/a.ts')) -IsFront $isF).Allowed) 'a renamed src file -> refused'
+Check ((Get-NoVisibleStringDecision -Changes @((Ch 'M' '.storybook/main.ts')) -IsFront $isF).Allowed) '.storybook/ is Storybook only (hooks.ps1 Test-IsFrontendFile: never needed a string; extraLive covers it) -> not a site change'
+$d = Get-NoVisibleStringDecision -Changes @((Ch 'A' 'src/lib/new.ts')) -IsFront $isF -GlobFiles @('src/pages/Home/Home.tsx')
+Check (-not $d.Allowed -and $d.Reason -match 'import\.meta\.glob') "a shipped import.meta.glob -> refused ($($d.Reason))"
+Check ((Get-NoVisibleStringDecision -Changes @((Ch 'A' 'src/lib/new.ts')) -IsFront $isF -GlobFiles @('src/lib/x.test.ts')).Allowed) 'import.meta.glob only in a test file -> allowed'
+Check ((Get-NoVisibleStringDecision -Changes @((Ch 'M' 'src/ui/Button.tsx'), (Ch 'M' 'innovation/LOOP.md')) -IsFront $isF).Allowed) 'nothing front-end changed (src/ui is Storybook only) -> allowed'
+
+# the same rule over git, on real merges of this repo (skipped when the history is not there, e.g. a shallow clone)
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$have = { param($sha) $null = & git -C $repoRoot cat-file -e "$sha^{commit}" 2>$null; return ($LASTEXITCODE -eq 0) }
+if ((& $have 'e68cffbcc866df38109b925a08dfa4eeebf779c9') -and (& $have 'd6011b0')) {
+    $v = Get-NoVisibleStringVerdict -Repo $repoRoot -From 'e68cffbcc866df38109b925a08dfa4eeebf779c9^1' -To 'e68cffbcc866df38109b925a08dfa4eeebf779c9'
+    Check ($v.Allowed) "#36's real merge e68cffb (rolled back for want of a string) is accepted from git ($($v.Reason))"
+    $v = Get-NoVisibleStringVerdict -Repo $repoRoot -From 'd6011b0^1' -To 'd6011b0'
+    Check (-not $v.Allowed -and $v.Reason -match 'modified') "#47's real merge d6011b0 (changes the contact form) is refused ($($v.Reason))"
+    $v = Get-NoVisibleStringVerdict -Repo $repoRoot -From 'd6011b0' -To 'no-such-ref-xyz'
+    Check (-not $v.Allowed) "a git failure refuses (fail closed: $($v.Reason))"
+} else { Write-Host 'note: the merge history is not in this clone; the git-level -NoVisibleString checks were skipped' }
+
+# wiring: deploy.ps1 and test-gate.ps1 take the flag, refuse both flags together, and keep -ExpectString mandatory otherwise
+$dp = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'deploy.ps1')); $tg = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'test-gate.ps1'))
+Check ($dp -match '\[string\]\$NoVisibleString' -and $dp -match 'Get-NoVisibleStringVerdict -Repo \$clone -From \$parent -To \$MergeSha' -and $dp -match 'not both') 'deploy.ps1 re-applies the git rule at the merge and refuses both flags'
+Check ($dp -match "elseif \(\`$frontFiles.Count -gt 0 -and -not \`$ExpectString\) \{ throw 'the merge changes the front end") 'deploy.ps1 still demands -ExpectString for a front-end merge without -NoVisibleString'
+Check ($dp -match '-not \$state\.prevSignature -or "\$\(\$v\.Signature\)" -ne "\$\(\$state\.prevSignature\)"') 'deploy.ps1 with -NoVisibleString requires the served signature to be unchanged (and readable)'
+Check ($tg -match '\[string\]\$NoVisibleString' -and $tg -match 'Get-NoVisibleStringVerdict' -and $tg -match '\$built -ne \$live') 'test-gate.ps1 applies the git rule and the build-output check'
+
 Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
 if ($script:fail -gt 0) { Write-Host "TEST-LIVE-CHECK FAIL ($script:fail failed, $script:pass passed)"; exit 1 }
 Write-Host "TEST-LIVE-CHECK PASS ($script:pass checks)"

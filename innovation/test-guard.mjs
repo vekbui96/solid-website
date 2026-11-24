@@ -28,6 +28,8 @@ const allow = [
   ps(`${S}\\test-gate.ps1 -Issue 12 -Step all -ExpectString "New label"`),
   ps(`${S}\\merge-pr.ps1 -Pr 40 -Issue 12`),
   ps(`${S}\\deploy.ps1 -Issue 12 -MergeSha ${SHA} -ExpectString "New label"`),
+  ps(`${S}\\test-gate.ps1 -Issue 12 -Step all -NoVisibleString "new module, nothing imports it yet"`),
+  ps(`${S}\\deploy.ps1 -Issue 12 -MergeSha ${SHA} -NoVisibleString "package.json scripts only"`),
   ps(`${S}\\rollback.ps1 -Issue 12 -MergeSha ${SHA} -RevertOnly`),
   ps(`git -C "${C}" status`),
   ps(`git -C "${C}" checkout -b loop/12-small-fix origin/main`),
