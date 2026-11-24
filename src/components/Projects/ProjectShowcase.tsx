@@ -1,5 +1,5 @@
-import { createSignal, createEffect, For, Show } from "solid-js";
-import projects from "../../data/projects.json";
+import { createSignal, createEffect, For, Show, onMount } from "solid-js";
+import type projectsJson from "../../data/projects.json";
 import { useGlobalContext } from "../../context/GlobalContext";
 // @ts-ignore
 import styles from "./ProjectShowcase.scss?inline";
@@ -24,9 +24,19 @@ export const ProjectShowcase = () => {
     const [showAll, setShowAll] = createSignal(false);
     let gridEl: HTMLDivElement | undefined;
 
+    // the project data is its own chunk (shared with the Fit Analyzer), fetched on mount
+    const [projects, setProjects] = createSignal<typeof projectsJson>([] as any);
+    const [failed, setFailed] = createSignal(false);
+    const loadProjects = () => {
+        setFailed(false);
+        import("../../data/projects.json").then((m) => setProjects((m as any).default), () => setFailed(true));
+    };
+    onMount(loadProjects);
+
     const visible = () => {
-        if (filter() !== "all") return projects.filter((p) => p.categories.includes(filter()));
-        return showAll() ? projects : projects.filter((p) => (p as any).curated);
+        const all = projects();
+        if (filter() !== "all") return all.filter((p) => p.categories.includes(filter()));
+        return showAll() ? all : all.filter((p) => (p as any).curated);
     };
 
     const toggle = (id: string) => setOpen(open() === id ? null : id);
@@ -64,6 +74,13 @@ export const ProjectShowcase = () => {
                     )}
                 </For>
             </div>
+
+            <Show when={!projects().length}>
+                <p class="pj-loading" role="status" style={{ "min-height": "320px", opacity: "0.7" }}>
+                    {failed() ? "Couldn't load the projects. " : "Loading projects…"}
+                    <Show when={failed()}><button class="pj-more-btn" onClick={loadProjects}>Try again</button></Show>
+                </p>
+            </Show>
 
             <div class="pj-grid" ref={gridEl}>
                 <For each={visible()}>
@@ -192,10 +209,10 @@ export const ProjectShowcase = () => {
                 </For>
             </div>
 
-            <Show when={filter() === "all"}>
+            <Show when={filter() === "all" && projects().length}>
                 <div class="pj-more">
                     <button class="pj-more-btn" onClick={() => setShowAll(!showAll())}>
-                        {showAll() ? "Show fewer" : `Show all ${projects.length} projects →`}
+                        {showAll() ? "Show fewer" : `Show all ${projects().length} projects →`}
                     </button>
                 </div>
             </Show>
