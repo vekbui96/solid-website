@@ -529,13 +529,72 @@ function Get-LoopMdSections {
 # out of loop.config.json so a model change never makes the elevated copy stale).
 $script:SessionDefaults = [ordered]@{
     # builds on Sonnet (Ve, 2026-11-23); build.opusModel only for the cases in Get-BuildModelChoice
-    build   = [ordered]@{ model = 'claude-sonnet-5-5'; opusModel = 'claude-opus-5-5'; opusLabels = @('model:opus'); smallModel = 'claude-sonnet-5-5'; smallLabels = @('size:small', 'test-only'); maxTurns = 150; timeoutMinutes = 150 }
+    build   = [ordered]@{ model = 'claude-sonnet-5-5'; opusModel = 'claude-opus-5-5'; opusLabels = @('model:opus'); smallModel = 'claude-sonnet-5-5'; smallLabels = @('size:small', 'test-only'); maxTurns = 150; timeoutMinutes = 150
+        sizeSmallLabels = @('size:small'); sizeSmallMaxTurns = 100; sizeSmallMaxBudgetUsd = 2.5 }
     propose = [ordered]@{ model = 'claude-sonnet-5-5'; maxTurns = 80; timeoutMinutes = 45; minMinutes = 15 }
     review  = [ordered]@{ model = 'claude-sonnet-5-5'; maxTurns = 120; timeoutMinutes = 60 }
 }
 
 # The session settings: $SessionDefaults overlaid with the parsed sessions.json ($Json, may be $null).
 # Unknown keys are ignored; empty values keep the default.
+# ---- token savers (2026-11-24): small-build caps and the feasibility pre-check ---------------------------------
+# '2.50' (invariant culture: claude reads a dot).
+function Format-BudgetUsd { param([double]$Usd) return $Usd.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture) }
+
+# The turn and USD caps of one build session. A build on a model that is not Opus whose issue carries a
+# build.sizeSmallLabels label (size:small) gets build.sizeSmallMaxTurns and build.sizeSmallMaxBudgetUsd (passed as
+# claude --max-budget-usd; a stop there is failure class max-budget, retried once like max-turns). Anything else keeps
+# build.maxTurns and no USD cap. An Opus build (the automatic retry, model:opus) never gets the small caps.
+# Returns Turns, BudgetUsd (0 = none), Small, Why.
+function Get-BuildCaps {
+    param([string[]]$Labels = @(), [string]$Model = '', $Config)
+    $c = $Config['build']
+    $turns = [int]$c['maxTurns']; $usd = [double]0
+    $isOpus = ($Model.Trim() -eq '' -or $Model -match 'opus')
+    $sl = @('size:small'); if ($c.Contains('sizeSmallLabels') -and @($c['sizeSmallLabels']).Count -gt 0) { $sl = @($c['sizeSmallLabels']) }
+    $hit = @($Labels | Where-Object { $sl -contains $_ })
+    if ($isOpus -or $hit.Count -eq 0) { return [pscustomobject]@{ Turns = $turns; BudgetUsd = $usd; Small = $false; Why = $(if ($isOpus) { 'Opus build: the full caps' } else { 'no size:small label: the normal caps' }) } }
+    $t2 = 0; [void][int]::TryParse("$($c['sizeSmallMaxTurns'])", [ref]$t2)
+    $u2 = [double]0; [void][double]::TryParse("$($c['sizeSmallMaxBudgetUsd'])", [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$u2)
+    if ($t2 -gt 0 -and $t2 -lt $turns) { $turns = $t2 }
+    if ($u2 -gt 0) { $usd = $u2 }
+    return [pscustomobject]@{ Turns = $turns; BudgetUsd = $usd; Small = $true; Why = "label $($hit[0]): small-build caps" }
+}
+
+# The repo paths an issue body names (<a top-level dir of a clone>/... + a file extension; backslashes read as /),
+# minus the ones its line says are new ("new", "create", "add a/an ...", "introduce"). -Exists: path -> $true when the
+# file is on origin/main of any clone. -Roots: the clones' top-level directories. Refuse when the body names at least
+# one such path and NONE of them exists on main: the proposal describes code that is not there, so a session would
+# only explore and give up. Some missing: no refusal; the build header lists them (PRECHECK). Returns Paths, Missing,
+# Refuse, Why.
+$script:PrecheckExtRx = '(?:tsx?|jsx?|mjs|cjs|css|scss|json|md|html|py|svg|png|ps1|psm1|java|kt|ya?ml|properties|xml|sql|sh)'
+$script:PrecheckNewRx = '(?i)\b(new|create[sd]?|creating|introduc\w*|add(s|ed|ing)? (a|an)\b)'
+function Get-ProposalPathCheck {
+    param([string]$Body = '', [scriptblock]$Exists, [string[]]$Roots = @('src', 'scripts', 'docs', 'public', 'server', 'e2e'), [int]$Max = 20)
+    $b = [regex]::Replace("$Body", '(?s)<!--.*?-->', '')
+    $b = [regex]::Replace($b, '(?<=[\w.\]-])\\(?=[\w.\[-])', '/')
+    $rs = @($Roots | Where-Object { "$_" -match '^[A-Za-z0-9_.-]+$' -and "$_" -notin @('.git', '.', '..') } | ForEach-Object { [regex]::Escape("$_") })
+    if ($rs.Count -eq 0) { return [pscustomobject]@{ Paths = @(); Missing = @(); Refuse = $false; Why = 'no repo roots to check against' } }
+    $rx = '(?<![\w/.-])((?:' + ($rs -join '|') + ')/[A-Za-z0-9_./\[\]-]*[A-Za-z0-9_\]-]\.' + $script:PrecheckExtRx + ')(?![\w/-])'
+    # a path the body ever calls new ("Add a static public/404.html") is left out everywhere it appears
+    $paths = New-Object System.Collections.ArrayList; $isNew = @{}
+    foreach ($line in @($b -split "`r?`n")) {
+        foreach ($m in [regex]::Matches($line, $rx)) {
+            $p = $m.Groups[1].Value
+            if ($line.Substring(0, $m.Index) -match $script:PrecheckNewRx) { $isNew[$p] = $true; continue }
+            if (-not $paths.Contains($p) -and $paths.Count -lt $Max) { [void]$paths.Add($p) }
+        }
+    }
+    $paths = @($paths | Where-Object { -not $isNew.ContainsKey($_) })
+    $missing = @($paths | Where-Object { -not (& $Exists $_) })
+    $refuse = ($paths.Count -gt 0 -and $missing.Count -eq $paths.Count)
+    $why = $(if ($paths.Count -eq 0) { 'the issue names no repo file: nothing to pre-check' }
+        elseif ($refuse) { "none of the $($paths.Count) file(s) the issue names exists on main ($(@($missing | Select-Object -First 5) -join ', ')): the proposal no longer matches the code" }
+        elseif ($missing.Count) { "$($missing.Count) of $($paths.Count) named file(s) not on main: $(@($missing | Select-Object -First 5) -join ', ')" }
+        else { "all $($paths.Count) named file(s) exist on main" })
+    return [pscustomobject]@{ Paths = @($paths); Missing = @($missing); Refuse = $refuse; Why = $why }
+}
+
 function Get-SessionConfig {
     param($Json)
     $cfg = [ordered]@{}
@@ -745,6 +804,7 @@ $script:RetryableFailures = [ordered]@{
     'out-of-time'        = 'the run ran out of time before the merge'
     'timeout'            = 'the run hit its time limit mid-build'
     'max-turns'          = 'the session hit its turn limit mid-build'
+    'max-budget'         = 'the session hit its USD cap (sessions.json build.sizeSmallMaxBudgetUsd) mid-build'
 }
 $script:ChangeFailures = [ordered]@{
     'tests'         = 'tests or CI still failed after the fix rounds'
@@ -937,11 +997,12 @@ function Format-WaitingOnOwner {
 # issue in this run (then it is never retried: a merge that was not verified needs the owner).
 function Get-UnfinishedFailure {
     param([string]$EndClass, [string]$MergeSha = '', [int]$TimeoutMinutes = 0, [string]$Who = 'the owner')
-    $class = $EndClass; if ($class -notin @('timeout', 'max-turns')) { $class = 'session-ended' }
+    $class = $EndClass; if ($class -notin @('timeout', 'max-turns', 'max-budget')) { $class = 'session-ended' }
     if ($MergeSha) { $class = 'session-ended' }
     $what = 'The session ended while this issue was still being built.'
     if ($EndClass -eq 'timeout') { $what = "The run hit its $TimeoutMinutes-minute limit while this issue was being built, and the session was stopped." }
     if ($EndClass -eq 'max-turns') { $what = 'The session hit its turn limit while this issue was being built.' }
+    if ($EndClass -eq 'max-budget') { $what = 'The session hit its USD cap (sessions.json build.sizeSmallMaxBudgetUsd) while this issue was being built.' }
     if ($MergeSha) {
         $state = "The change was merged as $MergeSha, but its deploy was not verified in this run. It needs $Who to check the live site and server (and roll back with rollback.ps1 if needed); it is not retried automatically."
     } elseif ($script:RetryableFailures.Contains($class)) {

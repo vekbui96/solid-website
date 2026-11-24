@@ -695,6 +695,43 @@ foreach ($sf in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter *.ps1 | Where
     Check ($clash.Count -eq 0) "$($sf.Name): no script-level variable that overwrites a `$script: variable of another case ($($clash -join '; '))"
 }
 
+# ---- token savers (2026-11-24): small-build caps, the feasibility pre-check, trimmed build prompts --------------
+$cfgC = Get-SessionConfig ([IO.File]::ReadAllText("$PSScriptRoot\sessions.json") | ConvertFrom-Json)
+$bc = Get-BuildCaps -Labels @('loop:proposal', 'size:small') -Model 'claude-sonnet-5-5' -Config $cfgC
+Check ($bc.Small -and $bc.Turns -eq 100 -and $bc.BudgetUsd -eq 2.5) "a size:small Sonnet build gets the small caps from sessions.json (100 turns, 2.50 USD) ($($bc.Why))"
+$bn = Get-BuildCaps -Labels @('loop:proposal') -Model 'claude-sonnet-5-5' -Config $cfgC
+Check (-not $bn.Small -and $bn.Turns -eq 150 -and $bn.BudgetUsd -eq 0) 'no size:small: maxTurns and no USD cap, as before'
+$bo = Get-BuildCaps -Labels @('size:small') -Model 'claude-opus-5-5' -Config $cfgC
+Check (-not $bo.Small -and $bo.Turns -eq 150 -and $bo.BudgetUsd -eq 0) 'an Opus build (the retry of a small build, model:opus) keeps the full caps'
+Check (-not (Get-BuildCaps -Labels @('test-only') -Model 'claude-sonnet-5-5' -Config $cfgC).Small) 'test-only alone does not get the small caps'
+$bd = Get-BuildCaps -Labels @('size:small') -Model 'claude-sonnet-5-5' -Config (Get-SessionConfig $null)
+Check ($bd.Turns -eq 100 -and $bd.BudgetUsd -eq 2.5) 'the defaults carry the same small caps'
+$bh = Get-BuildCaps -Labels @('size:small') -Model 'claude-sonnet-5-5' -Config (Get-SessionConfig ('{"build":{"maxTurns":60}}' | ConvertFrom-Json))
+Check ($bh.Turns -eq 60) 'small caps never raise a lower maxTurns'
+Check ($script:RetryableFailures.Contains('max-budget') -and (Get-UnfinishedFailure -EndClass 'max-budget').Class -eq 'max-budget') 'a USD-cap stop is class max-budget, retried once like max-turns'
+$fs = @('src/app/Home.tsx', 'scripts/health.ps1', 'docs/x.md')
+$ex = { param($p) $fs -contains $p }
+$rt = @('src', 'scripts', 'docs', 'public')
+$pc = Get-ProposalPathCheck -Body "## What`nIn ``src/app/Home.tsx`` add a chip, and a new src/app/Chip.tsx" -Exists $ex -Roots $rt
+Check (-not $pc.Refuse -and @($pc.Paths).Count -eq 1) "named files on main, the new file is not counted ($($pc.Why))"
+$pc = Get-ProposalPathCheck -Body "The Settings page src/pages/Settings.tsx gets a button. See src/pages/Other.tsx:40." -Exists $ex -Roots $rt
+Check ($pc.Refuse -and @($pc.Missing).Count -eq 2) "every named file missing on main: refused before any session ($($pc.Why))"
+$pc = Get-ProposalPathCheck -Body "Change src/app/Home.tsx and src/app/Gone.tsx" -Exists $ex -Roots $rt
+Check (-not $pc.Refuse -and @($pc.Missing) -contains 'src/app/Gone.tsx') 'some missing: no refusal, listed for the session'
+Check (-not (Get-ProposalPathCheck -Body 'Polish the home header.' -Exists $ex -Roots $rt).Refuse) 'no file named: nothing to refuse'
+Check (-not (Get-ProposalPathCheck -Body "Add a static ``public/404.html``.`nA unit test asserts ``public/404.html`` exists." -Exists $ex -Roots $rt).Refuse) 'a file the body calls new is left out everywhere it is named (portfolio #65)'
+Check ((Get-ProposalPathCheck -Body 'Fix scripts\health.ps1 output' -Exists $ex -Roots $rt).Paths -contains 'scripts/health.ps1') 'Windows backslash paths are read as repo paths'
+Check (-not (Get-ProposalPathCheck -Body "<!-- src/gone/x.ts -->`nPolish." -Exists $ex -Roots $rt).Refuse) 'paths inside HTML comments are ignored'
+$md2 = [IO.File]::ReadAllText("$PSScriptRoot\LOOP.md")
+$b1 = Get-LoopMdSections -Text $md2 -Sections @(0, 2, 3, 6)
+Check ($b1 -match 'Feasibility first' -and $b1 -match 'AFTER the feasibility step' -and $b1 -notmatch '(?m)^## 1\. Labels' -and $b1 -notmatch '(?m)^## 4\. Gates') 'the build prompt has the feasibility step and leaves out sections 1 and 4'
+$pp2 = Get-LoopMdSections -Text $md2 -Sections @(0, 1, 2, 5, 6)
+Check ($pp2 -match 'check it is feasible' -and $pp2 -match 'Not already on main' -and $pp2 -match 'Not a duplicate' -and $pp2 -match 'Bundle small polish') 'proposal sessions check feasibility and bundle small polish'
+$rlC = [IO.File]::ReadAllText("$PSScriptRoot\run-loop.ps1")
+Check ($rlC -match "\`$sections = @\(0, 2, 3, 6\)") 'build prompts leave out sections 1 and 4'
+Check ($rlC -match 'Get-BuildPrecheck -Issue \$n' -and $rlC -match 'Set-PrecheckRefused' -and $rlC -match '-Turns \$bTurns' -and $rlC -match '-BudgetUsd \$bUsd' -and $rlC -match "'--max-budget-usd'" -and $rlC -match "error_max_budget_usd") 'run-loop pre-checks every build and passes the build caps (turns and USD) to claude'
+Check ($rlC -match '-Done @\(\$built \| Where-Object \{ -not \$_\.Precheck \}\)') 'a pre-check refusal does not count against MaxBuilds'
+
 if ($script:fail -gt 0) { Write-Host "TEST-QUEUE-RULES FAIL ($script:fail failed, $script:pass passed)"; exit 1 }
 Write-Host "TEST-QUEUE-RULES PASS ($script:pass checks)"
 exit 0

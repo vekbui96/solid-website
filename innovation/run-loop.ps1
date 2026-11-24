@@ -441,12 +441,13 @@ function Publish-SpecProgress {
 # The run header + the LOOP.md sections one session needs. Returns the prompt path.
 function New-SessionPrompt {
     param([string]$Kind, [int]$Issue = 0, [string]$SessionModel, [int]$Turns, [datetime]$SessionDeadline, $Q, [string[]]$CloneLines, [string]$LiveHead,
-        [string]$ServerUsed = '', [string]$BuiltLine = '')
+        [string]$ServerUsed = '', [string]$BuiltLine = '', [string[]]$ExtraLines = @())
     $loopMd = [IO.File]::ReadAllText((Join-Path $ScriptsDir 'LOOP.md'))
     $name = $Kind; if ($Issue -gt 0) { $name = "$Kind-$Issue" }
     $lines = @()
     if ($Kind -eq 'build') {
-        $sections = @(0, 1, 2, 3, 4, 6)
+        # sections 1 (labels) and 4 (gates summary) are left out: section 3 has every command a build needs
+        $sections = @(0, 2, 3, 6)
         $retry = 'no'; if (@($Q.retry) -contains $Issue) { $retry = 'yes: the ONE automatic retry (section 3 steps 4 and 6)' }
         $lines += "# $title innovation loop run ${RunId}: build session for issue #$Issue"
         $lines += ''
@@ -460,6 +461,7 @@ function New-SessionPrompt {
         $su = 'no'; if ($ServerUsed) { $su = "yes ($ServerUsed): at most one server deploy per run, so if this change needs one, skip it (section 3 step 3)" }
         $lines += "- SERVER_DEPLOYED_THIS_RUN: $su"
         if ($BuiltLine) { $lines += "- EARLIER_THIS_RUN: $BuiltLine" }
+        $lines += @($ExtraLines)
     } else {
         $sections = @(0, 1, 2, 5, 6)
         $lines += "# $title innovation loop run ${RunId}: proposal session (Phase B)"
@@ -502,8 +504,49 @@ function New-SessionPrompt {
 
 # One reduced-token claude session. Returns Kind, Issue, Model, Path (transcript), Start, EndClass
 # (timeout | max-turns | session-ended | not-started), Status (LOOP-RESULT word), Reason, Ok, Summary, Turns, Cost.
+# The feasibility pre-check of one build (gate-rules.ps1 Get-ProposalPathCheck) against the files on origin/main of
+# every clone (a path counts as there when any repo of this loop has it). Returns Refuse, Why and Lines (the PRECHECK
+# header line for the build session). Any error: no refusal (the session's own feasibility step still runs).
+function Get-BuildPrecheck {
+    param([int]$Issue)
+    $out = [pscustomobject]@{ Refuse = $false; Why = 'not checked'; Lines = @() }
+    try {
+        $set = New-Object 'System.Collections.Generic.HashSet[string]'
+        $roots = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($repo in $script:Repos) {
+            $ls = Invoke-Git -Repo (Get-ClonePath $repo.name) -Arguments @('ls-tree', '-r', '--name-only', 'origin/main') -AllowFail -Quiet
+            if ($ls.Code -ne 0) { $out.Why = "git ls-tree failed in the $($repo.name) clone: not checked"; return $out }
+            foreach ($f in @($ls.Output)) { $p = "$f".Trim(); if ($p) { [void]$set.Add($p); if ($p.Contains('/')) { [void]$roots.Add($p.Substring(0, $p.IndexOf('/'))) } } }
+        }
+        if ($set.Count -lt 20) { $out.Why = "only $($set.Count) files listed on main: not checked"; return $out }
+        $iss = Get-GhJson @('api', "repos/$($script:HubRepo)/issues/$Issue")
+        $r = Get-ProposalPathCheck -Body "$($iss.body)" -Exists { param($p) $set.Contains($p) } -Roots @($roots)
+        $out.Refuse = [bool]$r.Refuse; $out.Why = $r.Why
+        if (@($r.Paths).Count -gt 0) {
+            $st = @($r.Paths | ForEach-Object { if (@($r.Missing) -contains $_) { "$_ (NOT on main)" } else { "$_ (on main)" } })
+            $out.Lines = @("- PRECHECK: $($r.Why). Named files: $($st -join ', ')   (the runner checked origin/main of every clone; section 3 step 3 'Feasibility first')")
+        } else { $out.Lines = @('- PRECHECK: the issue names no repo file; find what it means before planning (section 3 step 3 "Feasibility first")') }
+    } catch { $out.Refuse = $false; $out.Why = "pre-check failed ($_): not checked" }
+    return $out
+}
+# A build refused by the pre-check: failure comment (class scope, outcome skipped) and loop:failed, like a session's
+# step 3 refusal, without spending a session.
+function Set-PrecheckRefused {
+    param([int]$Issue, [string]$Why, [string]$SessionModel = '')
+    if ($DryRun) { Write-Log "dry run: #$Issue would be refused by the pre-check ($Why)"; return }
+    try {
+        $body = "$($script:Marker)`n$(Format-FailureMarker -Class 'scope' -Outcome 'skipped' -Model $SessionModel)`n## Synopsis`n`nNot built: the change it describes does not match the code on main any more, so a build session would only search and give up. Nothing was changed. Close this issue, or edit it to point at today's code and approve it again.`n`n## Details`n`nPre-check by run-loop.ps1 (run ``$RunId``), before any session: $(ConvertTo-SafeLine $Why 400).`n"
+        $bp = Join-Path $script:LoopHome "work\precheck-$RunId-$Issue.md"
+        [IO.File]::WriteAllText($bp, $body, (New-Object Text.UTF8Encoding $false))
+        Invoke-Gh -Arguments @('issue', 'comment', "$Issue", '-R', $script:HubRepo, '--body-file', $bp) -Quiet | Out-Null
+        Invoke-Gh -Arguments @('issue', 'edit', "$Issue", '-R', $script:HubRepo, '--add-label', 'loop:failed') -Quiet | Out-Null
+    } catch { Write-Log "pre-check: could not mark #${Issue}: $_" 'WARN' }
+}
+
+# $BudgetUsd > 0 is passed as --max-budget-usd (a size:small build: gate-rules.ps1 Get-BuildCaps); a stop there is
+# EndClass max-budget (retried once, like max-turns).
 function Invoke-Session {
-    param([string]$Kind, [int]$Issue = 0, [string]$SessionModel, [int]$Turns, [int]$Minutes, [string]$PromptPath)
+    param([string]$Kind, [int]$Issue = 0, [string]$SessionModel, [int]$Turns, [int]$Minutes, [string]$PromptPath, [double]$BudgetUsd = 0)
     $name = $Kind; if ($Issue -gt 0) { $name = "$Kind-$Issue" }
     $s = [pscustomobject]@{ Kind = $Kind; Issue = $Issue; Model = $SessionModel; Path = (Join-Path $script:LoopHome "logs\run-$RunId.$name.jsonl"); Start = (Get-Date)
         EndClass = 'session-ended'; Status = ''; Reason = ''; Ok = $false; Summary = ''; Turns = 0; Cost = $null; ExitCode = $null }
@@ -516,6 +559,7 @@ function Invoke-Session {
     $argList = @('-p', '--output-format', 'stream-json', '--verbose', '--model', $SessionModel, '--max-turns', "$Turns",
         '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--settings', (& $q $settingsPath), '--setting-sources', 'local',
         '--strict-mcp-config', '--add-dir') + $addDirs
+    if ($BudgetUsd -gt 0) { $argList += @('--max-budget-usd', (Format-BudgetUsd $BudgetUsd)) }
     $argString = $argList -join ' '
     Write-Log "session $name start: model=$SessionModel maxTurns=$Turns timeout=${Minutes}m guardMode=$guardMode"
     Write-Log "claude command: `"$ClaudeExe`" $argString  < $PromptPath"
@@ -539,6 +583,7 @@ function Invoke-Session {
         # cost is the API-equivalent figure claude reports; on a Max subscription it is usage, not a bill.
         Write-Log ("result: session={0} subtype={1} is_error={2} turns={3} cost={4}" -f $name, $result.subtype, $result.is_error, $result.num_turns, $result.total_cost_usd)
         if ("$($result.subtype)" -eq 'error_max_turns') { $s.EndClass = 'max-turns' }
+        if ("$($result.subtype)" -eq 'error_max_budget_usd') { $s.EndClass = 'max-budget'; Write-Log "session $name stopped at its USD cap ($(Format-BudgetUsd $BudgetUsd))" 'WARN' }
         $m = [regex]::Match($s.Summary, 'LOOP-RESULT:\s*([A-Z\-]+)[ \t]*([^\r\n]*)')
         $s.Status = $m.Groups[1].Value; $s.Reason = $m.Groups[2].Value.Trim()
         $s.Ok = ($s.ExitCode -eq 0 -and -not $result.is_error)
@@ -780,7 +825,7 @@ try {
                 $dl = "Phase A: $(Format-Deferred @($split.Deferred) $budget.Verdict)"
                 if ($runNotes -notcontains $dl) { Write-Log $dl; [void]$runNotes.Add($dl) }
             }
-            $dec = Get-NextBuildDecision -Buildable @($split.Allowed) -Done $built -MaxBuilds $MaxBuilds -RemainingMinutes (& $minutesLeft) -NextBuildMinMinutes $NextBuildMinMinutes
+            $dec = Get-NextBuildDecision -Buildable @($split.Allowed) -Done @($built | Where-Object { -not $_.Precheck }) -MaxBuilds $MaxBuilds -RemainingMinutes (& $minutesLeft) -NextBuildMinMinutes $NextBuildMinMinutes
             Write-Log "Phase A: $(if ($dec.Start) { 'starting' } else { 'stop:' }) $($dec.Reason)"
             if (-not $dec.Start) { [void]$runNotes.Add("Phase A stopped: $($dec.Reason)"); break }
             $n = $dec.Issue
@@ -789,17 +834,29 @@ try {
             if ($approvalOf[$n] -ne 'label') { Write-Log "Phase A: #$n approval: $($approvalOf[$n])" }
             $bm = Get-QueueBuildModel $q $n
             $sm = $bm.Model
-            Write-Log "Phase A: #$n model $sm ($($bm.Why))"
+            $caps = Get-BuildCaps -Labels $labels -Model $sm -Config $Cfg; $bTurns = [int]$caps.Turns; $bUsd = [double]$caps.BudgetUsd
+            if ($MaxTurns -gt 0) { $bTurns = [int]$Cfg.build.maxTurns }   # run-loop -MaxTurns overrides every session
+            Write-Log "Phase A: #$n model $sm ($($bm.Why)); caps $bTurns turns$(if ($bUsd -gt 0) { ", `$$(Format-BudgetUsd $bUsd)" }) ($($caps.Why))"
             $minutes = [int][math]::Floor([math]::Min([double]$Cfg.build.timeoutMinutes, (& $minutesLeft)))
             if ($built.Count -gt 0 -and -not $DryRun) { $cloneLines = @(Reset-Clones); if ($script:ServerEnabled) { try { $liveHead = Get-LiveHead } catch { } } }
             $builtLine = @($built | ForEach-Object { "#$($_.Issue) $($_.Outcome)" }) -join ', '
-            $pp = New-SessionPrompt -Kind 'build' -Issue $n -SessionModel $sm -Turns ([int]$Cfg.build.maxTurns) -SessionDeadline ((Get-Date).AddMinutes($minutes)) -Q $q -CloneLines $cloneLines -LiveHead $liveHead -ServerUsed $serverUsed -BuiltLine $builtLine
+            # the feasibility pre-check (no session): the files the issue names that are not on main
+            $pcx = Get-BuildPrecheck -Issue $n
+            if ($pcx.Refuse) {
+                Write-Log "Phase A: #$n refused before any session: $($pcx.Why)" 'WARN'
+                Set-PrecheckRefused -Issue $n -Why $pcx.Why -SessionModel $sm
+                $built += [pscustomobject]@{ Issue = $n; Outcome = 'skipped'; Precheck = $true }
+                if ($approvalOf[$n] -eq 'via-policy') { $script:ViaPolicyOutcomes[[int]$n] = 'skipped'; Save-ViaPolicyState }
+                [void]$runNotes.Add("#${n}: refused by the pre-check, no session: $($pcx.Why)")
+                continue
+            }
+            $pp = New-SessionPrompt -Kind 'build' -Issue $n -SessionModel $sm -Turns $bTurns -SessionDeadline ((Get-Date).AddMinutes($minutes)) -Q $q -CloneLines $cloneLines -LiveHead $liveHead -ServerUsed $serverUsed -BuiltLine $builtLine -ExtraLines @($pcx.Lines)
             if ($DryRun) {
-                Write-Log "DRY RUN plan: build session #$n model=$sm ($($bm.Why); labels: $($labels -join ',')) maxTurns=$($Cfg.build.maxTurns) timeout=${minutes}m prompt=$pp"
+                Write-Log "DRY RUN plan: build session #$n model=$sm ($($bm.Why); labels: $($labels -join ',')) maxTurns=$bTurns$(if ($bUsd -gt 0) { " maxBudgetUsd=$(Format-BudgetUsd $bUsd)" }) timeout=${minutes}m precheck=($($pcx.Why)) prompt=$pp ($((Get-Item -LiteralPath $pp).Length) bytes)"
                 $built += [pscustomobject]@{ Issue = $n; Outcome = 'deployed' }; $simMinutes += 75   # assume it deploys in ~75 min, to show the plan
                 continue
             }
-            $s = Invoke-Session -Kind 'build' -Issue $n -SessionModel $sm -Turns ([int]$Cfg.build.maxTurns) -Minutes $minutes -PromptPath $pp
+            $s = Invoke-Session -Kind 'build' -Issue $n -SessionModel $sm -Turns $bTurns -Minutes $minutes -PromptPath $pp -BudgetUsd $bUsd
             [void]$sessions.Add($s)
             if ($s.EndClass -eq 'not-started') {
                 # e.g. the reduced token could not be verified (fail closed): nothing else may run either
