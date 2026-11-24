@@ -1059,22 +1059,31 @@ function Get-DrainDecision {
     $mk = { param([bool]$S, [string]$K, [string]$Why) [pscustomobject]@{ Start = $S; Key = $K; Reason = $Why } }
     if ($null -eq $Drain -or "$($Drain.schema)" -ne '1' -or -not "$($Drain.runId)") { return (& $mk $false '' 'no drain state') }
     $key = "drain:${Repo}:$($Drain.runId)"
+    $toUtc = { param($x) if ($x -is [datetime]) { return $x.ToUniversalTime() }; $p = [datetime]::MinValue
+        if ([datetime]::TryParse("$x", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$p)) { return $p.ToUniversalTime() }; return $null }
     $b = @(@($Drain.buildable) | Where-Object { "$_" -match '^\d+$' } | ForEach-Object { [int]"$_" })
-    if ($b.Count -eq 0) { return (& $mk $false '' "nothing buildable after run $($Drain.runId)") }
+    $pd = $null; if ($Drain.PSObject.Properties.Name -contains 'policyDueAt' -and "$($Drain.policyDueAt)") { $pd = & $toUtc $Drain.policyDueAt }
+    $md = $null; if ($Drain.PSObject.Properties.Name -contains 'mergeDueAt' -and "$($Drain.mergeDueAt)") { $md = & $toUtc $Drain.mergeDueAt }
+    $what = 'via-policy veto window'
+    if ($null -ne $md -and ($null -eq $pd -or $md -lt $pd)) { $pd = $md; $what = 'look window of a parked merge' }
+    $policy = ($b.Count -eq 0 -and $null -ne $pd -and $Now.ToUniversalTime() -ge $pd)
+    if ($b.Count -eq 0 -and -not $policy) {
+        if ($null -ne $pd) { return (& $mk $false '' "nothing buildable after run $($Drain.runId); next $what ends $($pd.ToLocalTime().ToString('yyyy-MM-dd HH:mm'))") }
+        return (& $mk $false '' "nothing buildable after run $($Drain.runId)")
+    }
     if (@($Done) -contains $key) { return (& $mk $false '' "already started a drain run after run $($Drain.runId)") }
     if ("$($Drain.needsVe)" -eq 'True') { return (& $mk $false '' "run $($Drain.runId) stopped on an uncertain deploy: waiting for Ve") }
     $v = "$Verdict".Trim().ToLowerInvariant()
     if ($v -eq 'hold') { return (& $mk $false '' 'plan budget hold') }
     $op = @(@($Drain.needsOpus) | Where-Object { "$_" -match '^\d+$' } | ForEach-Object { [int]"$_" })
-    if ($v -eq 'no-opus' -and @($b | Where-Object { $op -notcontains $_ }).Count -eq 0) { return (& $mk $false '' 'plan budget no-opus and every buildable issue needs Opus') }
+    if ($v -eq 'no-opus' -and $b.Count -gt 0 -and @($b | Where-Object { $op -notcontains $_ }).Count -eq 0) { return (& $mk $false '' 'plan budget no-opus and every buildable issue needs Opus') }
     if ($Running) { return (& $mk $false '' 'a run is in progress') }
-    $toUtc = { param($x) if ($x -is [datetime]) { return $x.ToUniversalTime() }; $p = [datetime]::MinValue
-        if ([datetime]::TryParse("$x", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$p)) { return $p.ToUniversalTime() }; return $null }
     $end = & $toUtc $Drain.endedAt
     if ($null -eq $end) { return (& $mk $false '' 'drain state has no endedAt') }
     $idle = ($Now.ToUniversalTime() - $end).TotalMinutes
     if ($idle -lt $IdleMinutes) { return (& $mk $false '' "run $($Drain.runId) ended $([int]$idle) min ago (wait $IdleMinutes)") }
     if ("$($Drain.buildCapped)" -and $end.ToLocalTime().Date -eq $Now.Date) { return (& $mk $false '' "daily build cap reached today ($($Drain.buildCapped))") }
+    if ($policy) { return (& $mk $true $key "$what ended $($pd.ToLocalTime().ToString('yyyy-MM-dd HH:mm')) after run $($Drain.runId): re-check the queue") }
     $h = @(@($Drain.history) | Where-Object { $_ })
     $last = @($h | Select-Object -Last $FailRuns)
     $stuck = ($last.Count -ge $FailRuns -and @($last | Where-Object { "$($_.head)" -eq "$($b[0])" -and "$($_.progress)" -eq '0' }).Count -eq $last.Count)
