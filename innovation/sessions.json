@@ -1,5 +1,5 @@
 {
-  "_readme": "Ve's file: the model, turn cap and time limit of each kind of claude session (run-loop.ps1 starts one session per job). Edit by hand; the loop only reads it. Missing or empty values fall back to the defaults in gate-rules.ps1 ($SessionDefaults). Builds run on build.model (Sonnet, decided 2026-11-23) and on build.opusModel only when the issue carries one of build.opusLabels (model:opus, Ve adds it before approving), when the change deploys the API (area:backend / area:both, or What deploys names the API), or for the one automatic retry of a non-Opus build that failed on the change (gate-rules.ps1 Get-BuildModelChoice); build.smallLabels keep build.smallModel. The plan budget's no-opus defers only those Opus builds. run-loop.ps1 -Model / -MaxTurns override every session for one run. options.designSkills lets build and proposal sessions use the pinned design aids under D:\\loop-tools (impeccable engine: context / shot / detect; ui-ux-pro-max search.py) and adds LOOP.md section 7; the runner re-hashes the engine every run and turns the feature off on a mismatch (the taste skill is never available to the loop).",
+  "_readme": "Ve's file: the model, turn cap and time limit of each kind of claude session (run-loop.ps1 starts one session per job). Edit by hand; the loop only reads it. Missing or empty values fall back to the defaults in gate-rules.ps1 ($SessionDefaults). Builds run on build.model (Sonnet, decided 2026-11-23) and on build.opusModel only when the issue carries one of build.opusLabels (model:opus, Ve adds it before approving), when the change deploys the API (area:backend / area:both, or What deploys names the API), or for the one automatic retry of a non-Opus build that failed on the change (gate-rules.ps1 Get-BuildModelChoice); build.smallLabels keep build.smallModel. The plan budget's no-opus defers only those Opus builds. Small builds (2026-11-24, token savers): a non-Opus build of an issue with a build.sizeSmallLabels label (size:small) runs with build.sizeSmallMaxTurns (100) and build.sizeSmallMaxBudgetUsd (2.50, passed as claude --max-budget-usd; a stop there is failure class max-budget, retried once) (gate-rules.ps1 Get-BuildCaps); every other build keeps maxTurns and no USD cap. run-loop.ps1 -Model / -MaxTurns override every session for one run. options.designSkills lets build and proposal sessions use the pinned design aids under D:\\loop-tools (impeccable engine: context / shot / detect; ui-ux-pro-max search.py) and adds LOOP.md section 7; the runner re-hashes the engine every run and turns the feature off on a mismatch (the taste skill is never available to the loop).",
   "build": {
     "model": "claude-sonnet-5-5",
     "opusModel": "claude-opus-5-5",
@@ -7,7 +7,10 @@
     "smallModel": "claude-sonnet-5-5",
     "smallLabels": ["size:small", "test-only"],
     "maxTurns": 150,
-    "timeoutMinutes": 150
+    "timeoutMinutes": 150,
+    "sizeSmallLabels": ["size:small"],
+    "sizeSmallMaxTurns": 100,
+    "sizeSmallMaxBudgetUsd": 2.5
   },
   "propose": {
     "model": "claude-sonnet-5-5",

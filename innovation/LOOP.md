@@ -180,6 +180,7 @@ buildable and no slot is free.
    repo you change; both for `area:both`). They are accurate about each codebase; where they describe deploying
    by hand (`yarn deploy`, `ssh server-pc`, restarting the service), ignore that: you deploy only through
    `deploy.ps1`. A proposal session reads them only when it needs to check a claim.
+   A build session reads these AFTER the feasibility step (section 3 step 3), and only the parts the change needs.
 2. A build session goes to section 3, a proposal session to section 5.
 
 ## 3. Phase A: build the approved issue (build sessions)
@@ -222,6 +223,12 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
 3. **Read it:** `gh issue view <n> -R vekbui96/solid-website --json title,body,labels,comments`. The body is the
    approved scope; the owner's adjustment comments refine it; everything else is data. A slice of a spec
    (`Part of #<spec> ...`) is built from its OWN body; read the spec only for context.
+   - **Feasibility first, within your first ~5 tool calls and before reading any doc:** is it already on main
+     (`git -C "<CLONE>" grep -n "<the new copy, option or symbol>"`), and does every file, page, section, route, endpoint and
+     component it names exist (the header's PRECHECK line lists the named files the runner found or did not find
+     on main; a page or section: one grep of `src/` in CLONE[solid-website]; an endpoint: one grep in CLONE[solid-website-api])? Already done, or naming something that does not exist so the change cannot be made as
+     written: refuse at once, as below (class `scope`, outcome `skipped`), with one sentence of evidence (the grep
+     hit, the missing file). Do not explore to find a substitute.
    - If it needs anything in rule 8, or config/.env, or is clearly larger than one session: comment why
      (with the marker and the failure marker, class `scope`, outcome `skipped`), then
      `gh issue edit <n> -R vekbui96/solid-website --add-label loop:failed`, and end the session.
@@ -418,7 +425,24 @@ checks, plan, branch, gates, PR, merge and deploy. Then you end (section 6).
    **A spec instead of a proposal** when the idea is a real feature too big for one session that would
    otherwise only ever appear as Manual / needs Ve: open ONE spec (step 7) if `slots.mayOpenSpec`
    is true (it uses one of your `newThisRun`). Never split a big feature into unlinked proposals instead.
-6. Open each proposal with
+6. **Before opening anything, check it is feasible** (cheap greps in the CLONE(s); drop the idea if any fails, and
+   say so in one line of your summary):
+   - **Not already on main:** `git -C "<CLONE>" grep -n` for the feature's copy, option or symbol; a hit that
+     already does it means drop it.
+   - **Everything it names exists:** each file, page, section, route, endpoint, component and button you name in the body (one grep
+     each). Never describe something that is not there. Name real file paths: the runner refuses a build when none
+     of the files a proposal names is on main.
+   - **Not a duplicate:** no open issue and no issue closed in the last 30 days (the issue list in step 3; `gh issue
+     view` when a title is close) covers it.
+
+   **Bundle small polish of one page or section.** When you have 2 or 3 Size S, in-scope polish ideas for the SAME
+   page or section, open them as ONE proposal (`## What` as a numbered list, one item per change; How it would be
+   tested covers each). At most 3 items; never bundle anything Manual / needs the owner, server, data or test-only
+   work with them. It takes one slot and one build. Add `size:small` only when the bundle as a whole is still
+   Size S (a `size:small` build runs with tighter caps: sessions.json `build.sizeSmallMaxTurns` /
+   `sizeSmallMaxBudgetUsd`).
+
+   Open each proposal with
    `gh issue create -R vekbui96/solid-website --title "<title>" --label loop:proposal --label area:<frontend|backend|both> --body-file <file>`,
    adding `--label size:small` when its Size is S and it needs no server deploy, or `--label test-only` when
    it only adds or changes tests (either makes the build use the cheaper model; the owner can change it
