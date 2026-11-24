@@ -28,6 +28,13 @@ export const statusText = (shown: number, total: number) =>
 export const keepOpen = (open: string | null, visibleIds: readonly string[]) =>
     open !== null && visibleIds.includes(open) ? open : null;
 
+// a `#proj-<id>` URL hash names a project only when the id is a known one (the hash is untrusted)
+export const projectIdFromHash = (hash: string, knownIds: readonly string[]) => {
+    if (!hash.startsWith("#proj-")) return null;
+    const id = hash.slice("#proj-".length);
+    return knownIds.includes(id) ? id : null;
+};
+
 export const ProjectShowcase = () => {
     const ctx = useGlobalContext();
     const [filter, setFilter] = createSignal<string>("all");
@@ -58,6 +65,16 @@ export const ProjectShowcase = () => {
         if (!projects().length) return;
         const next = keepOpen(open(), visible().map((p) => p.id));
         if (next !== open()) setOpen(next);
+    });
+
+    // a shared link (`#proj-<id>`) opens that project once, as soon as the data is known
+    let hashHandled = false;
+    createEffect(() => {
+        const all = projects();
+        if (hashHandled || !all.length) return;
+        hashHandled = true;
+        const id = projectIdFromHash(window.location.hash, all.map((p) => p.id));
+        if (id) ctx?.setOpenProjectId(id);
     });
 
     // deep-link: the Fit Analyzer requests a project — reveal, open, and scroll to it
