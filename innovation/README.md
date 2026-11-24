@@ -203,6 +203,18 @@ if gh-pages is still at that deploy), its Pages build awaited, then the merge is
 string must be gone. A change that ships nothing new (gh-pages pushes nothing for an identical dist) is not
 a failure. `src/ui/` (Storybook only) needs no `-ExpectString`.
 
+**`-NoVisibleString "<why>"`** (test-gate.ps1 and deploy.ps1, instead of `-ExpectString`, never both) is for a
+front-end change that ships no new bytes, like #36 (a bundle-budget script: `package.json` `"scripts"` plus files
+outside the bundle), which was merged clean and then rolled back for want of a string. It is accepted only when
+git proves the served output cannot change (`live-check.ps1` `Get-NoVisibleStringDecision`): every changed
+front-end file is NEW under `src/` (Vite bundles only what is imported) or `package.json` with only `"scripts"`
+changed; a modified, deleted or renamed `src/` file, anything in `public/`, `index.html`, `vite.config.ts` or
+`yarn.lock` refuses it, as does a shipped `import.meta.glob`. The build output proves it: the test gate requires
+the built `dist\index.html` (content-hashed asset names + its own bytes) to match the live site's signature, and
+deploy.ps1 re-applies the git rule at the merge, then requires the served signature to be unchanged after the
+deploy, plus the usual chunk walk, extra URLs and headless render. Every other front-end merge still needs
+`-ExpectString`.
+
 The gh-pages publish clone lives in `clones\solid-website\node_modules\.cache\gh-pages\`. The old loop's copy
 was left owned by Administrators by an elevated run, and under the reduced token git refused it ("dubious
 ownership"), which gh-pages reports as "Failed to get remote.origin.url" (runs 20261116-140147 and

@@ -29,7 +29,11 @@ param(
     [string]$Repo = '',
     # A string that exists only in the new front-end build (new UI copy is best). Required when the merge
     # changes anything that ships in the bundle; omit only for server-only changes.
-    [string]$ExpectString = ''
+    [string]$ExpectString = '',
+    # Instead of -ExpectString, for a front-end change that ships no new bytes (a new module nothing imports yet, a
+    # package.json "scripts"-only change): the reason, one line. Allowed only when git proves the served output cannot
+    # change (live-check.ps1 Get-NoVisibleStringDecision); then the served signature must be unchanged after the deploy.
+    [string]$NoVisibleString = ''
 )
 . "$PSScriptRoot\lib.ps1"
 . "$PSScriptRoot\live-check.ps1"   # Find-InChunkGraph: the whole chunk graph, for hooks.ps1 Test-FrontendLive
@@ -44,7 +48,7 @@ $isServerRepo = $script:ServerEnabled -and ("$(Get-Cfg 'server.repo')" -eq $repo
 $isFrontRepo = ($script:FrontendMode -ne 'none') -and ("$(Get-Cfg 'frontend.repo')" -eq $repoCfg.name)
 $art = Join-Path $script:LoopHome "artifacts\$Issue"
 if (-not (Test-Path -LiteralPath $art)) { New-Item -ItemType Directory -Path $art | Out-Null }
-$state = [ordered]@{ issue = $Issue; repo = $repoCfg.name; mergeSha = $MergeSha; expectString = $ExpectString; startedUtc = [DateTime]::UtcNow.ToString('o'); serverDeployed = $false; status = 'started' }
+$state = [ordered]@{ issue = $Issue; repo = $repoCfg.name; mergeSha = $MergeSha; expectString = $ExpectString; noVisibleString = $NoVisibleString; startedUtc = [DateTime]::UtcNow.ToString('o'); serverDeployed = $false; status = 'started' }
 
 function Finish([int]$code, [string]$line) {
     $state.status = $line; $state.finishedUtc = [DateTime]::UtcNow.ToString('o'); Save-State "deploy-$Issue-$($repoCfg.name)" $state
@@ -85,7 +89,13 @@ try {
     if ($isFrontRepo) {
         $frontFiles = @($mergeFiles | Where-Object { Test-IsFrontendFile $_ })
         $state.prevSignature = Get-FrontendSignature
-        if ($frontFiles.Count -gt 0 -and -not $ExpectString) { throw 'the merge changes the front end: pass -ExpectString <string only the new build contains>' }
+        if ($ExpectString -and $NoVisibleString) { throw 'pass -ExpectString or -NoVisibleString, not both' }
+        if ($NoVisibleString) {
+            # re-applied here from git at the merge, whatever the session claimed (refused = the revert path below)
+            $nvs = Get-NoVisibleStringVerdict -Repo $clone -From $parent -To $MergeSha
+            Write-Log "no-visible-string: allowed=$($nvs.Allowed) ($($nvs.Reason)); reason given: $NoVisibleString"
+            if (-not $nvs.Allowed) { throw "-NoVisibleString refused: $($nvs.Reason); pass -ExpectString <string only the new build contains>" }
+        } elseif ($frontFiles.Count -gt 0 -and -not $ExpectString) { throw 'the merge changes the front end: pass -ExpectString <string only the new build contains> (or -NoVisibleString "<why>" when nothing served can change)' }
     }
     Write-Log "merge $MergeSha changes $($mergeFiles.Count) file(s); front-end relevant: $($frontFiles.Count); server repo: $isServerRepo"
     if ($isServerRepo) {
@@ -126,9 +136,14 @@ if ($plan -and $plan.ServerNeeded) {
 $asset = ''
 if ($isFrontRepo) {
     if (-not (Invoke-FrontendDeploy -RepoName $repoCfg.name -MergeSha $MergeSha -Issue $Issue)) { Undo "the front-end deploy for $MergeSha did not succeed" }
-    $notSig = ''; if ($frontFiles.Count -gt 0) { $notSig = $state.prevSignature }
+    # with a string: the new build must be served (signature changed); with -NoVisibleString nothing served may change
+    $notSig = ''; if ($frontFiles.Count -gt 0 -and -not $NoVisibleString) { $notSig = $state.prevSignature }
     $v = Test-FrontendLive -ExpectString $ExpectString -NotSignature $notSig -RepoForSmoke $clone -ShotPath (Join-Path $art 'live.png') -TimeoutSec 600
     if (-not $v.Ok) { Undo 'live front-end verification failed (string / chunks / render)' }
+    if ($NoVisibleString -and (-not $state.prevSignature -or "$($v.Signature)" -ne "$($state.prevSignature)")) {
+        Undo "-NoVisibleString: the served build changed ($($state.prevSignature) -> $($v.Signature)) although git said nothing served could"
+    }
+    if ($NoVisibleString) { Write-Log "no-visible-string: served signature unchanged ($($v.Signature)); chunks, extra URLs and the render checked" }
     $asset = $v.Asset
 }
 
