@@ -24,6 +24,10 @@ export const filterCount = (all: { categories: readonly string[] }[], id: string
 export const statusText = (shown: number, total: number) =>
     `Showing ${shown} of ${total} project${total === 1 ? "" : "s"}`;
 
+// an open card only stays open while it is still on screen
+export const keepOpen = (open: string | null, visibleIds: readonly string[]) =>
+    open !== null && visibleIds.includes(open) ? open : null;
+
 export const ProjectShowcase = () => {
     const ctx = useGlobalContext();
     const [filter, setFilter] = createSignal<string>("all");
@@ -47,6 +51,14 @@ export const ProjectShowcase = () => {
     };
 
     const toggle = (id: string) => setOpen(open() === id ? null : id);
+
+    // changing the filter or "Show all" collapses a card that is no longer visible
+    // (not before the data loads, so a deep link requested early still opens)
+    createEffect(() => {
+        if (!projects().length) return;
+        const next = keepOpen(open(), visible().map((p) => p.id));
+        if (next !== open()) setOpen(next);
+    });
 
     // deep-link: the Fit Analyzer requests a project — reveal, open, and scroll to it
     createEffect(() => {
@@ -105,6 +117,7 @@ export const ProjectShowcase = () => {
                             <button
                                 class="pj-head"
                                 aria-expanded={open() === p.id}
+                                aria-controls={`proj-body-${p.id}`}
                                 onClick={() => toggle(p.id)}
                             >
                                 <span class="pj-head-text">
@@ -123,7 +136,7 @@ export const ProjectShowcase = () => {
                             </button>
 
                             <Show when={open() === p.id}>
-                                <div class="pj-body">
+                                <div class="pj-body" id={`proj-body-${p.id}`}>
                                     <Show when={(p as any).flow}>
                                         <div class="pj-flow">
                                             <For each={(p as any).flow as string[]}>
