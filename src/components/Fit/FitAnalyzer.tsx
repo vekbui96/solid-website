@@ -1,5 +1,4 @@
-import { createSignal, For, Show, onCleanup } from "solid-js";
-import { analyzeFit, AXES } from "../../lib/fitAnalysis";
+import { createSignal, For, Show, onCleanup, onMount } from "solid-js";
 import type { FitReport, Axis } from "../../lib/fitAnalysis";
 import { useGlobalContext } from "../../context/GlobalContext";
 // @ts-ignore
@@ -47,6 +46,25 @@ export const FitAnalyzer = () => {
     const [dial, setDial] = createSignal(0);
     let timer: ReturnType<typeof setTimeout> | undefined;
     let textareaEl: HTMLTextAreaElement | undefined;
+    let wrapEl: HTMLDivElement | undefined;
+    let runId = 0;
+
+    // The scoring code (and the projects data it matches against) is a separate chunk,
+    // fetched when the section nears the viewport or on first interaction, never before.
+    type FitMod = typeof import("../../lib/fitAnalysis");
+    const [mod, setMod] = createSignal<FitMod | null>(null);
+    let loading: Promise<FitMod> | undefined;
+    const load = () => (loading ??= import("../../lib/fitAnalysis").then((m) => (setMod(m), m)));
+    const axes = () => mod()?.AXES ?? [];
+
+    onMount(() => {
+        if (typeof IntersectionObserver === "undefined" || !wrapEl) return;
+        const io = new IntersectionObserver((entries) => {
+            if (entries.some((e) => e.isIntersecting)) { load(); io.disconnect(); }
+        }, { rootMargin: "600px 0px" });
+        io.observe(wrapEl);
+        onCleanup(() => io.disconnect());
+    });
 
     // what the polite live region says: nothing while idle, then progress, then the result
     const announcement = () => {
@@ -70,12 +88,16 @@ export const FitAnalyzer = () => {
         requestAnimationFrame(f);
     };
 
-    const run = () => {
+    const run = async () => {
         const jd = input().trim();
         if (jd.length < 12) return;
         clearTimeout(timer);
+        const id = ++runId;
         setReport(null); setDial(0); setStatus("analyzing"); setStep(0);
-        const r = analyzeFit(jd);
+        let m: FitMod;
+        try { m = await load(); } catch { loading = undefined; if (id === runId) setStatus("idle"); return; }
+        if (id !== runId) return;
+        const r = m.analyzeFit(jd);
         const reveal = () => { setReport(r); setStatus("done"); tween(r.matchScore); };
         if (reduce()) { reveal(); return; }
         let i = 0;
@@ -87,9 +109,9 @@ export const FitAnalyzer = () => {
     };
     onCleanup(() => clearTimeout(timer));
 
-    const useSample = (k: string) => { setInput(SAMPLES[k]); setStatus("idle"); setReport(null); };
+    const useSample = (k: string) => { load(); setInput(SAMPLES[k]); runId++; setStatus("idle"); setReport(null); };
     // the reset button removes itself, so hand keyboard focus back to the input
-    const reset = () => { setStatus("idle"); setReport(null); setDial(0); textareaEl?.focus(); };
+    const reset = () => { runId++; setStatus("idle"); setReport(null); setDial(0); textareaEl?.focus(); };
 
     // radar geometry (viewBox 200x200, center 100,100, radius 78)
     const pt = (axis: Axis, v: number, i: number) => {
@@ -98,7 +120,7 @@ export const FitAnalyzer = () => {
         return [100 + r * Math.cos(ang), 100 + r * Math.sin(ang)];
     };
     const poly = (vals: Record<Axis, number>) =>
-        AXES.map((a, i) => pt(a.id, vals[a.id], i).join(",")).join(" ");
+        axes().map((a, i) => pt(a.id, vals[a.id], i).join(",")).join(" ");
     const axisEnd = (i: number) => {
         const ang = ((-90 + i * 60) * Math.PI) / 180;
         return [100 + 78 * Math.cos(ang), 100 + 78 * Math.sin(ang)];
@@ -117,7 +139,7 @@ export const FitAnalyzer = () => {
     return (
         <>
             <style>{styles}</style>
-            <div class="container fa-wrap">
+            <div class="container fa-wrap" ref={wrapEl}>
                 <p class="hp-eyebrow fa-eyebrow">Fit Analyzer</p>
                 <h2 class="fa-title">Wondering if I fit a role?</h2>
                 <p class="fa-sub">
@@ -132,6 +154,7 @@ export const FitAnalyzer = () => {
                         placeholder="Paste a job description…"
                         aria-label="Job description"
                         value={input()}
+                        onFocus={() => { load(); }}
                         onInput={(e) => setInput(e.currentTarget.value)}
                     />
                     <div class="fa-controls">
@@ -185,14 +208,14 @@ export const FitAnalyzer = () => {
                                 <div class="fa-radar-box">
                                     <svg viewBox="0 0 200 200" class="fa-radar" role="img" aria-label="Capability radar: role demand versus candidate strength">
                                         <For each={[0.25, 0.5, 0.75, 1]}>
-                                            {(g) => <polygon class="fa-grid" points={AXES.map((a, i) => axisEnd(i).map((c) => 100 + (c - 100) * g).join(",")).join(" ")} />}
+                                            {(g) => <polygon class="fa-grid" points={axes().map((a, i) => axisEnd(i).map((c) => 100 + (c - 100) * g).join(",")).join(" ")} />}
                                         </For>
-                                        <For each={AXES}>
+                                        <For each={axes()}>
                                             {(_, i) => <line class="fa-axis" x1="100" y1="100" x2={axisEnd(i())[0]} y2={axisEnd(i())[1]} />}
                                         </For>
                                         <polygon class="fa-strength" points={poly(rep().strength)} />
                                         <polygon class="fa-demand" points={poly(rep().demand)} />
-                                        <For each={AXES}>
+                                        <For each={axes()}>
                                             {(a, i) => {
                                                 const [x, y] = labelPos(i());
                                                 return <text class="fa-radar-label" x={x} y={y} text-anchor="middle" dominant-baseline="middle">{a.label}</text>;
