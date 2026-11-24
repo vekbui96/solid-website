@@ -27,6 +27,9 @@ param(
 . "$PSScriptRoot\live-check.ps1"
 . "$PSScriptRoot\hooks.ps1"
 Start-ScriptLog "test-gate-$Issue-$Step"
+# BelowNormal for this process and everything it starts (install, build, checks; children inherit it), so the gate
+# never competes with the services on this box (Ve, 2026-11-24; browsers: browser-lock.mjs)
+try { [Diagnostics.Process]::GetCurrentProcess().PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal } catch { Write-Log "could not lower the gate to BelowNormal: $_" 'WARN' }
 $failures = New-Object System.Collections.ArrayList
 $null = Clear-SecretEnv
 
