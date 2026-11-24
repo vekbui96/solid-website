@@ -398,6 +398,10 @@ $d = Get-DesignSkillsSetup -Enabled $true -EnvPrefix $dsPrefix -Paths $tp -Engin
 $rules = @($d.Allow) -join ' | '
 Check ($d.Ok -and $d.Env["$($dsPrefix)_DESIGN_SKILLS"] -eq '1' -and $d.Env['IMPECCABLE_BIN'] -eq $tp.Engine -and $d.PathPrepend -eq $tp.PythonDir) "design on -> guard flag, IMPECCABLE_BIN, python on PATH ($($d.Reason))"
 Check ($d.Env['IMPECCABLE_NO_TELEMETRY'] -eq '1' -and $d.Env['IMPECCABLE_NO_UPDATE_CHECK'] -eq '1' -and $d.Env['IMPECCABLE_HOOK_DISABLED'] -eq '1') 'design on -> engine off the network, hook disabled'
+Check (-not $d.Env.Contains('DO_NOT_TRACK')) 'design on never sets DO_NOT_TRACK (claude then offers no PowerShell tool; cardlens PR #188)'
+$rlT = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'run-loop.ps1')); $grT = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'gate-rules.ps1'))
+Check ($grT -notmatch "DO_NOT_TRACK = '1'" -and $rlT -notmatch "DO_NOT_TRACK = '1'|env:DO_NOT_TRACK =") 'no loop script sets DO_NOT_TRACK'
+Check ($rlT -match 'claude offered NO PowerShell tool') 'run-loop.ps1 flags a session whose init tool list lacks PowerShell'
 Check ($rules -match ' context\)' -and $rules -match ' shot \*' -and $rules -match ' detect \*' -and $rules -match 'python .*search\.py \*') "design on -> context/shot/detect/search rules"
 Check ($rules -notmatch 'hooks|pin|live|doctor|foundations|persist|\(python \*\)') 'design: no rule for hooks/pin/live/doctor/foundations or bare python'
 Check (-not (Get-DesignSkillsSetup -Enabled $true -EnvPrefix $dsPrefix -Paths $tp -EngineHash 'ffff').Ok) 'design: engine hash mismatch -> off'
