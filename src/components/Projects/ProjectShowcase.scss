@@ -253,6 +253,23 @@
     .pj-body { animation: none; }
 }
 
+/* Windows High Contrast: the pressed filter's fill is stripped, so mark it with
+   a heavier border and system colours; cards keep a visible edge. */
+@media (forced-colors: active) {
+    .pj-filter, .pj-more-btn, .pj-card, .pj-link, .pj-toggle { border-color: ButtonText; }
+    .pj-filter.active {
+        color: HighlightText;
+        background: Highlight;
+        border: 2px solid CanvasText;
+        forced-color-adjust: none;
+    }
+    .pj-card.open { border: 2px solid Highlight; }
+    .pj-head:focus-visible, .pj-filter:focus-visible, .pj-more-btn:focus-visible {
+        outline: 2px solid CanvasText;
+        outline-offset: 2px;
+    }
+}
+
 @media screen and (max-width: 720px) {
     .pj-grid { grid-template-columns: 1fr; }
     .pj-card.open { grid-column: auto; }

@@ -28,6 +28,13 @@
 .fa-textarea:focus { outline: none; border-color: var(--d-accent); }
 .fa-textarea::placeholder { color: var(--d-muted); }
 
+/* Windows High Contrast: focus was a border-colour change only; add a real outline. */
+@media (forced-colors: active) {
+    .fa-textarea, .fa-chip { border-color: ButtonText; }
+    .fa-textarea:focus { outline: 2px solid Highlight; outline-offset: 2px; }
+    .fa-chip:focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+}
+
 .fa-controls {
     display: flex;
     align-items: center;
