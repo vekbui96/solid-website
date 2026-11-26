@@ -49,6 +49,15 @@
     }
 }
 
+/* Windows High Contrast: box-shadow rings are stripped, so focus and error
+   states get a real outline in system colours. */
+@media (forced-colors: active) {
+    .cf-input { border-color: ButtonText; }
+    .cf-input:focus { outline: 2px solid Highlight; outline-offset: 2px; }
+    .cf-input[aria-invalid="true"] { border-width: 2px; border-style: dashed; }
+    .cf-submit { border: 1px solid ButtonText; }
+}
+
 .cf-textarea {
     resize: vertical;
     min-height: 7rem;

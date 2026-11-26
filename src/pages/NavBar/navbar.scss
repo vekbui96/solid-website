@@ -33,6 +33,20 @@
     outline-offset: -2px;
 }
 
+/* Windows High Contrast: backgrounds are stripped, so mark the current link
+   with a border and system colours instead of the soft fill. */
+@media (forced-colors: active) {
+    .nav-link { border: 1px solid transparent; color: ButtonText; }
+    .nav-link:hover { border-color: Highlight; }
+    .nav-link.active {
+        border-color: Highlight;
+        color: Highlight;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+    }
+    .nav-link:focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+}
+
 /* Phones: the link row becomes a full-bleed strip that scrolls sideways inside
    the header (never the page), with edge fades hinting at hidden links. */
 @media screen and (max-width: 680px) {
