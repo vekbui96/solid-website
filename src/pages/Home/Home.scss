@@ -376,6 +376,48 @@ section[id] { scroll-margin-top: 84px; }
     .hp-diagram-ai .ai-layer { animation: none; }
 }
 
+/* ============ print / save as PDF ============ */
+@media print {
+    /* nothing may wait for a scroll: reveal and diagram draw-on states are forced on */
+    .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    .hp-diagram .n,
+    .hp-diagram .lbl { opacity: 1; transform: none; transition: none; }
+    .hp-diagram .edge:not(.flow) { stroke-dashoffset: 0; transition: none; }
+    .hp-diagram-ai .flow,
+    .hp-diagram-ai .ai-layer { animation: none; }
+    .hp-act-ai::before { display: none; }
+
+    /* white paper, dark ink: re-point the dark scene tokens at the light ones */
+    .hp-scene-dark {
+        --bg: #fff;
+        --surface: #fff;
+        --text: #111;
+        --muted: #333;
+        --border: #bbb;
+        --accent: #0e7490;
+        --d-bg: #fff;
+        --d-surface: #fff;
+        --d-text: #111;
+        --d-muted: #333;
+        --d-border: #bbb;
+        --d-accent: #0e7490;
+        background: #fff;
+        color: #111;
+    }
+    .hp-act, .hp-projects, .hp-fit, .hp-exp, .hp-caps, .hp-close { padding: 24px 0; }
+    .hp-act-alt, .hp-close { background: #fff; }
+    .hp-flow span { background: #fff; }
+
+    /* interactive chrome has no use on paper */
+    .topbar,
+    .hp-cta-row,
+    .cf-form { display: none !important; }
+
+    .hp-card,
+    .experience-container,
+    .hp-row { break-inside: avoid; }
+}
+
 /* ============ responsive ============ */
 @media screen and (max-width: 820px) {
     .hp-hero-inner,
